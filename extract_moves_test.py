@@ -3,10 +3,10 @@ import unittest
 
 from data_compressor import extract_moves
 
-path = ...  # path to pgn with games
+path = 'extract_moves_test.pgn'  # example pgn with games, shortened to fit into repo
 
 
-class MyTestCase(unittest.TestCase):
+class MovesExtractionTest(unittest.TestCase):
     """Tests for function ``data_comressor.extract_moves``
     """
 
