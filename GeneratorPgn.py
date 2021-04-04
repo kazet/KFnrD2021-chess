@@ -65,7 +65,6 @@ class GeneratorPgn():
             self.current_line.pop(0)
             return self.board.fen()
         except:
-            print(self.current_line[0])
             self.get_line()
             self.board.reset()
             return self.get_position()
@@ -146,9 +145,6 @@ class IteratorPgn(object):
                     self.replay_buffer.append(entry)
                 if len(self.replay_buffer) < self.replay_initial:
                     continue
-                print("koko9")
-                print(random.sample(self.replay_buffer, self.batch_size), "kkk")
-                print("jij")
                 yield random.sample(self.replay_buffer, self.batch_size)
         except Exception:
             pass
