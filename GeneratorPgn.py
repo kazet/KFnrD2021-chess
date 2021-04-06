@@ -156,12 +156,10 @@ class IteratorPgn(object):
         finally:
             self.kill_processes()
             
-    first_cords = {'a': 0, 'b': 1, 'c': 2, 'd': 3, 'e': 4, 'f': 5, 'g': 6, 'h': 7}
+ 
+first_cords = {'a': 0, 'b': 1, 'c': 2, 'd': 3, 'e': 4, 'f': 5, 'g': 6, 'h': 7}
 second_cords = {'1': 0, '2': 1, '3': 2, '4': 3, '5': 4, '6': 5, '7': 6, '8': 7}
-pieces = {'P': 0, 'N': 1, 'B': 2, 'R': 3, 'Q': 4, 'K': 5,
-          'p': 6, 'n': 7, 'b': 8, 'r': 9, 'q': 10, 'k': 11}
- 
- 
+pieces = {'P': 0, 'N': 1, 'B': 2, 'R': 3, 'Q': 4, 'K': 5,'p': 6, 'n': 7, 'b': 8, 'r': 9, 'q': 10, 'k': 11}
  
 class Preprocessor(object):
     def __init__(self, iterator):
