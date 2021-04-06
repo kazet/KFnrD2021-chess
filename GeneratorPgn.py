@@ -304,7 +304,7 @@ def ArrayToFen(arr):
         fen[-1]+=" -"
         for x in range(8):  
             if 1 in arr["en_passants"][i][0][x]:
-                fen[-1] = fen[-1][:-1]+chr(97+x)+str(8-list(arr["en_passants"][i][0][x]).index(1))
+                fen[-1] = fen[-1][:-1]+chr(97+x)+str(1+list(arr["en_passants"][i][0][x]).index(1))
                 break
         fen[-1]+=" "+str(arr["half_moves"][i])+" "+str(arr["full_moves"][i])
     return fen

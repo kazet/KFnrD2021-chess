@@ -16,6 +16,9 @@ for array,fens in loader :
             test_board=chess.Board().set_fen(data[x])
             if(data[x]==fens[x]):
                 result+=1
+            else:
+                print('')
+                print('incorrect data', data[x],fens[x],sep='\n')
         test_number+=1
     except Exception as e:
         print('')
