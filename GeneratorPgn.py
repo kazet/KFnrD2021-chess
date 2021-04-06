@@ -265,7 +265,54 @@ class Preprocessor(object):
             yield self.preprocess_batch(batch),batch
  
 
+castling=["K","Q","k","q"]
+
+def ArrayToFen(arr):
+    """
+    converts the data returned by the olo class to fen
+    :return: list of chessboard positions in FEN notation
+    """
+    fen=[]
+    for i in range(len(arr['players'])):
+        fen.append("")
+        pieces=["P","N","B","R","Q","K","p","n","b","r","q","k"]
+        players=["w","b"]
+        for line in range(8):
+            space=0
+            for field in range(8):
+                max_value=0
+                max_value_piece=""
+                for piece in range(12):
+                    if(arr['boards'][i][piece][field][line]>max_value):
+                        max_value = arr['boards'][i][piece][field][line]
+                        max_value_piece = pieces[piece]   
+                if(max_value>0.5):
+                    if(space>0):
+                        fen[-1]=fen[-1]+str(space)
+                    fen[-1]=fen[-1]+max_value_piece
+                    space=0
+                else:
+                    space+=1
+            if(space>0):
+                fen[-1]=fen[-1]+str(space)
+            fen[-1]=fen[-1]+"/"
+        fen[-1]=fen[-1][:-1]+" "+players[int(abs(arr['players'][i]-1)/2)]
+        if (1 in arr["castlings"][i]) == False:
+            fen[-1]+=" -"
+        else:
+            fen[-1]+=" "+"".join([castling[x] for x in range(4) if arr["castlings"][i][x]==1])#en_passants
+        fen[-1]+=" -"
+        for x in range(8):  
+            if 1 in arr["en_passants"][i][0][x]:
+                fen[-1] = fen[-1][:-1]+chr(97+x)+str(8-list(arr["en_passants"][i][0][x]).index(1))
+                break
+        fen[-1]+=" "+str(arr["half_moves"][i])+" "+str(arr["full_moves"][i])
+    return fen
+    
+
 if __name__ == '__main__':
     obj = Preprocessor(IteratorPgn(200, [["lichessPrepared.pgn"],["lichess.pgn.bz2"]], 600, 100))
     for i in obj:
         print(i)
+        
+        
