@@ -7,7 +7,7 @@ import urllib
 import numpy as np
 
 
-class FenGenerator:
+class FENGenerator:
     def __init__(self, replay_queue: mp.Queue, pgn_path):
 
         """
@@ -112,7 +112,7 @@ class PGNIterator(object):
         self.replay_queue = mp.Queue(maxsize=n_generators * 4)
         self.generators = []
         for paths in generators_paths:
-            self.generators.append(FenGenerator(self.replay_queue, paths))
+            self.generators.append(FENGenerator(self.replay_queue, paths))
         self.replay_buffer = deque(maxlen=replay_size)
         self.batch_size = batch_size
         self.replay_size = replay_size
@@ -260,7 +260,7 @@ class Preprocessor(object):
             "fen": raw_fen,
         }
 
-    def preprocess_batch(self, batch):
+    def _preprocess_batch(self, batch):
         """
         Applies `preprocess_fen` for a batch of data.
         :param batch: batch to preprocess
@@ -299,7 +299,7 @@ class Preprocessor(object):
         :return: yields preprocessed batches of samples
         """
         for batch in self.iterator:
-            yield self.preprocess_batch(batch), batch
+            yield self._preprocess_batch(batch), batch
 
 
 CASTLING = ["K", "Q", "k", "q"]
