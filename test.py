@@ -1,38 +1,52 @@
-from GeneratorPgn import PGNIterator, Preprocessor, ArrayToFen
+from GeneratorPgn import Preprocessor, ArrayToFen, FENGenerator
 import chess
 import numpy as np
+import torch.multiprocessing as mp
+from collections import deque
+import pickle
 
-"""
-tests whether the downloaded fen record after processing into a list.
-Then restored again has not been deformed, and whether the given fen record may mean a real position
-"""
-number_of_tests = 100
-test_number = 0
-batch_in_test = 1
-loader = Preprocessor(
-    PGNIterator(batch_in_test, [["lichessPrepared.pgn"], ["lichess.pgn.bz2"]], 100, 10)
-)
-result = 0
-for array, fens in loader:
-    try:
-        data = ArrayToFen(array)
-        for x in range(len(data)):
-            test_board = chess.Board().set_fen(data[x])
-            if data[x] == fens[x]:
-                result += 1
-            else:
-                print("")
-                print("incorrect data", data[x], fens[x], sep="\n")
-        test_number += 1
-    except Exception as e:
-        print("")
-        print(e, "", "An error occurred with this data", array, fens, sep="\n")
-    print("\r", "progres - ", str(test_number), "/", str(number_of_tests), end="")
-    if number_of_tests == test_number:
-        break
-print("")
-print(
-    "Percentage of Correct Transcription - "
-    + str(result / number_of_tests / batch_in_test * 100)
-    + "%"
-)
+path_to_test_pgn = "lichessTestPgn.pgn"
+path_to_test_fen = "lichessTestFen.pgn"
+path_to_test_array = "lichessTestArray.dictionary"
+
+
+class testIterator:
+    def __init__(self):
+        self.generator = FENGenerator(mp.Queue(maxsize=4), path_to_test_pgn)
+
+    def __iter__(self):
+        yield [self.generator.get_position()]
+
+
+generator = FENGenerator(mp.Queue(maxsize=4), path_to_test_pgn)
+answers = open(path_to_test_fen, "r")
+
+index = 0
+for answer in answers:
+    index += 1
+    data_from_generator = generator.get_position()
+    assert data_from_generator == answer.replace(
+        "\n", ""
+    ), "mistake in FENGenerator class, in example " + str(index)
+
+
+with open(path_to_test_array, "rb") as config_dictionary_file:
+    answers = pickle.load(config_dictionary_file)
+
+test_iterator = testIterator()
+test_loader = Preprocessor(test_iterator)
+index = 0
+for answer in answers:
+    index += 1
+    for i, j in test_loader:
+        assert (
+            np.array(i["boards"]) == np.array(answer["boards"])
+        ).all() == True, "mistake in Preprocessor class, in example " + str(index)
+        assert ArrayToFen(i) == j, (
+            "mistake in ArrayToFen function, in example "
+            + str(index)
+            + "\nIt should come out "
+            + str(j)
+            + " and it came out "
+            + str(ArrayToFen(i))
+        )
