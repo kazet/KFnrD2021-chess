@@ -29,12 +29,15 @@ class FENGenerator:
         else:
             self.pgn_paths = pgn_path
         # pgn_file - currently used data file
-        if ".bz2" in self.pgn_paths[0]:
-            self.pgn_file = bz2.open(self.pgn_paths[0])
-        elif "https://" in self.pgn_paths[0]:
-            self.pgn_file = urllib.request.urlopen(self.pgn_paths[0])
+        self.get_new_file(0)
+
+    def get_new_file(self, index):
+        if ".bz2" in self.pgn_paths[index]:
+            self.pgn_file = bz2.open(self.pgn_paths[index])
+        elif "https://" in self.pgn_paths[index]:
+            self.pgn_file = urllib.request.urlopen(self.pgn_paths[index])
         else:
-            self.pgn_file = open(self.pgn_paths[0])
+            self.pgn_file = open(self.pgn_paths[index])
 
     def get_line(self):
         """
@@ -50,14 +53,7 @@ class FENGenerator:
             self.current_path += 1
             if self.current_path >= len(self.pgn_paths):
                 self.current_path = 0
-            if self.pgn_paths[self.current_path].endswith(".bz2"):
-                self.pgn_file = bz2.open(self.pgn_paths[self.current_path])
-            elif "https://" in self.pgn_paths[self.current_path]:
-                self.pgn_file = urllib.request.urlopen(
-                    self.pgn_paths[self.current_path]
-                )
-            else:
-                self.pgn_file = open(self.pgn_paths[self.current_path])
+            self.get_new_file(self.current_path)
             line = self.pgn_file.readline()
         self.current_line = line[:-1].split()
 
