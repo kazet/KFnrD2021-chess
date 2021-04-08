@@ -6,27 +6,29 @@ import random
 import urllib
 import numpy as np
 
-class GeneratorPgn():
+
+class FenGenerator:
     def __init__(self, replay_queue: mp.Queue, pgn_path):
 
         """
-        Iterable class that generates stochastic fen and value samples by parallel running generators.
+        An iterable class that takes game saves and converts them into a chessboard position record in fen notation.
         :param replay_queue: target queue for samples
-        :param current_line: currently used line from the data file, representing one game
-        :param board: the chessboard on which the moves are made
         :param pgn_paths: list of paths to data files
-        :param current_path: index of the path to the currently used data file in the pgn_paths list
-        :param pgn_file: currently used data file
         """
 
         self.replay_queue = replay_queue
-        self.current_path = 0
-        self.current_line = []
-        self.board = chess.Board()
+        self.current_path = (
+            0  # index of the path to the currently used data file in the pgn_paths list
+        )
+        self.current_line = (
+            []
+        )  # currently used line from the data file, representing one game
+        self.board = chess.Board()  # the chessboard on which the moves are made
         if type(pgn_path) == str:
             self.pgn_paths = [pgn_path]
         else:
             self.pgn_paths = pgn_path
+        # pgn_file - currently used data file
         if ".bz2" in self.pgn_paths[0]:
             self.pgn_file = bz2.open(self.pgn_paths[0])
         elif "https://" in self.pgn_paths[0]:
@@ -37,7 +39,8 @@ class GeneratorPgn():
     def get_line(self):
         """
         get a new line with a new game from the currently used data file into the variable current_line.
-        If all lines from the file have already been read, set the next file from the list pgn_paths to the pgn_file and read the first line
+        If all lines from the file have already been read,
+        set the next file from the list pgn_paths to the pgn_file and read the first line
         :return: None
         """
         line = self.pgn_file.readline()
@@ -50,7 +53,9 @@ class GeneratorPgn():
             if self.pgn_paths[self.current_path].endswith(".bz2"):
                 self.pgn_file = bz2.open(self.pgn_paths[self.current_path])
             elif "https://" in self.pgn_paths[self.current_path]:
-                self.pgn_file = urllib.request.urlopen(self.pgn_paths[self.current_path])
+                self.pgn_file = urllib.request.urlopen(
+                    self.pgn_paths[self.current_path]
+                )
             else:
                 self.pgn_file = open(self.pgn_paths[self.current_path])
             line = self.pgn_file.readline()
@@ -84,7 +89,7 @@ class GeneratorPgn():
             self.replay_queue.put(position)
 
 
-class IteratorPgn(object):
+class PGNIterator(object):
     def __init__(
         self,
         batch_size: int,
@@ -107,7 +112,7 @@ class IteratorPgn(object):
         self.replay_queue = mp.Queue(maxsize=n_generators * 4)
         self.generators = []
         for paths in generators_paths:
-            self.generators.append(GeneratorPgn(self.replay_queue, paths))
+            self.generators.append(FenGenerator(self.replay_queue, paths))
         self.replay_buffer = deque(maxlen=replay_size)
         self.batch_size = batch_size
         self.replay_size = replay_size
@@ -155,12 +160,26 @@ class IteratorPgn(object):
             pass
         finally:
             self.kill_processes()
-            
- 
-first_cords = {'a': 0, 'b': 1, 'c': 2, 'd': 3, 'e': 4, 'f': 5, 'g': 6, 'h': 7}
-second_cords = {'1': 0, '2': 1, '3': 2, '4': 3, '5': 4, '6': 5, '7': 6, '8': 7}
-pieces = {'P': 0, 'N': 1, 'B': 2, 'R': 3, 'Q': 4, 'K': 5,'p': 6, 'n': 7, 'b': 8, 'r': 9, 'q': 10, 'k': 11}
- 
+
+
+FIRST_CORDS = {"a": 0, "b": 1, "c": 2, "d": 3, "e": 4, "f": 5, "g": 6, "h": 7}
+SECOND_CORDS = {"1": 0, "2": 1, "3": 2, "4": 3, "5": 4, "6": 5, "7": 6, "8": 7}
+PIECES = {
+    "P": 0,
+    "N": 1,
+    "B": 2,
+    "R": 3,
+    "Q": 4,
+    "K": 5,
+    "p": 6,
+    "n": 7,
+    "b": 8,
+    "r": 9,
+    "q": 10,
+    "k": 11,
+}
+
+
 class Preprocessor(object):
     def __init__(self, iterator):
         """
@@ -169,16 +188,16 @@ class Preprocessor(object):
         """
         super(Preprocessor, self).__init__()
         self.iterator = iterator
- 
+
     def preprocess_fen(self, fen):
         """
         Preprocesses one fen and value,
         :param fen: tuple(fen, value), data to preprocess
         :return: dictionary of preprocessed tensors
         """
- 
+
         raw_fen = fen
-        fen = raw_fen.split('/')
+        fen = raw_fen.split("/")
         fen_dropped = fen[:-1]
         fen_dropped.extend(fen[-1].split())
         board_position_str = fen_dropped[:8]
@@ -187,42 +206,60 @@ class Preprocessor(object):
         en_passant_str = fen_dropped[10]
         half_moves_str = fen_dropped[11]
         move_idx_str = fen_dropped[12]
- 
-        board_position = np.zeros((12, 8, 8,), dtype=np.float32)
+
+        board_position = np.zeros(
+            (
+                12,
+                8,
+                8,
+            ),
+            dtype=np.float32,
+        )
         for r_idx, row in enumerate(board_position_str):
             column = 0
             for piece in row:
                 try:
-                    p = pieces[piece]
-                    board_position[p, column, r_idx] = 1.
+                    p = PIECES[piece]
+                    board_position[p, column, r_idx] = 1.0
                     column += 1
                 except KeyError:
                     column += int(piece)
- 
-        next_mover = -1 if next_mover_str == 'b' else 1
+
+        next_mover = -1 if next_mover_str == "b" else 1
         castling = np.zeros(4)
         for figure in castling_str:
-            if figure == 'K':
+            if figure == "K":
                 castling[0] = 1
-            elif figure == 'Q':
+            elif figure == "Q":
                 castling[1] = 1
-            elif figure == 'k':
+            elif figure == "k":
                 castling[2] = 1
-            elif figure == 'q':
+            elif figure == "q":
                 castling[3] = 1
-        en_passant = np.zeros((1, 8, 8,), dtype=np.float32)
-        if en_passant_str != '-':
-            en_passant[0, first_cords[en_passant_str[0]], second_cords[en_passant_str[1]]] = 1.
+        en_passant = np.zeros(
+            (
+                1,
+                8,
+                8,
+            ),
+            dtype=np.float32,
+        )
+        if en_passant_str != "-":
+            en_passant[
+                0, FIRST_CORDS[en_passant_str[0]], SECOND_CORDS[en_passant_str[1]]
+            ] = 1.0
         half_moves = int(half_moves_str)
         move_idx = int(move_idx_str)
-        return {'board': board_position,
-                'castling': castling,
-                'en_passant': en_passant,
- 
-                'player': next_mover,
-                'half_move': half_moves, 'full_move': move_idx,
-                'fen': raw_fen}
- 
+        return {
+            "board": board_position,
+            "castling": castling,
+            "en_passant": en_passant,
+            "player": next_mover,
+            "half_move": half_moves,
+            "full_move": move_idx,
+            "fen": raw_fen,
+        }
+
     def preprocess_batch(self, batch):
         """
         Applies `preprocess_fen` for a batch of data.
@@ -239,80 +276,87 @@ class Preprocessor(object):
         fens = []
         for fen in batch:
             data = self.preprocess_fen(fen)
-            boards.append(data['board'])
-            players.append(data['player'])
-            castlings.append(data['castling'])
-            en_passants.append(data['en_passant'])
-            half_moves.append(data['half_move'])
-            full_moves.append(data['full_move'])
-            fens.append(data['fen'])
- 
-        return {'boards': boards,
-                'players': players,
-                'castlings': castlings,
-                'en_passants': en_passants,
-                'half_moves': half_moves,
-                'full_moves': full_moves}
- 
+            boards.append(data["board"])
+            players.append(data["player"])
+            castlings.append(data["castling"])
+            en_passants.append(data["en_passant"])
+            half_moves.append(data["half_move"])
+            full_moves.append(data["full_move"])
+            fens.append(data["fen"])
+
+        return {
+            "boards": boards,
+            "players": players,
+            "castlings": castlings,
+            "en_passants": en_passants,
+            "half_moves": half_moves,
+            "full_moves": full_moves,
+        }
+
     def __iter__(self):
         """
         Like `Iterator.__iter__()`, but applies preprocessing to yielded data.
         :return: yields preprocessed batches of samples
         """
         for batch in self.iterator:
-            #borr=chess.Board().set_fen(batch)
-            #print(borr)
-            yield self.preprocess_batch(batch),batch
- 
+            yield self.preprocess_batch(batch), batch
 
-castling=["K","Q","k","q"]
 
-def ArrayToFen(arr):
+CASTLING = ["K", "Q", "k", "q"]
+
+
+def ArrayToFen(arr, sensitivity=0.5):
     """
-    converts the data returned by the olo class to fen
+    converts the data returned by the Preprocessor class to fen
     :return: list of chessboard positions in FEN notation
     """
-    fen=[]
-    for i in range(len(arr['players'])):
+    fen = []
+    for i in range(len(arr["players"])):
         fen.append("")
-        pieces=["P","N","B","R","Q","K","p","n","b","r","q","k"]
-        players=["w","b"]
+        PIECES = ["P", "N", "B", "R", "Q", "K", "p", "n", "b", "r", "q", "k"]
+        players = ["w", "b"]
         for line in range(8):
-            space=0
+            space = 0
             for field in range(8):
-                max_value=0
-                max_value_piece=""
+                max_value = 0
+                max_value_piece = ""
                 for piece in range(12):
-                    if(arr['boards'][i][piece][field][line]>max_value):
-                        max_value = arr['boards'][i][piece][field][line]
-                        max_value_piece = pieces[piece]   
-                if(max_value>0.5):
-                    if(space>0):
-                        fen[-1]=fen[-1]+str(space)
-                    fen[-1]=fen[-1]+max_value_piece
-                    space=0
+                    if arr["boards"][i][piece][field][line] > max_value:
+                        max_value = arr["boards"][i][piece][field][line]
+                        max_value_piece = PIECES[piece]
+                if max_value > sensitivity:
+                    if space > 0:
+                        fen[-1] = fen[-1] + str(space)
+                    fen[-1] = fen[-1] + max_value_piece
+                    space = 0
                 else:
-                    space+=1
-            if(space>0):
-                fen[-1]=fen[-1]+str(space)
-            fen[-1]=fen[-1]+"/"
-        fen[-1]=fen[-1][:-1]+" "+players[int(abs(arr['players'][i]-1)/2)]
+                    space += 1
+            if space > 0:
+                fen[-1] = fen[-1] + str(space)
+            fen[-1] = fen[-1] + "/"
+        fen[-1] = fen[-1][:-1] + " " + players[int(abs(arr["players"][i] - 1) / 2)]
         if (1 in arr["castlings"][i]) == False:
-            fen[-1]+=" -"
+            fen[-1] += " -"
         else:
-            fen[-1]+=" "+"".join([castling[x] for x in range(4) if arr["castlings"][i][x]==1])#en_passants
-        fen[-1]+=" -"
-        for x in range(8):  
-            if 1 in arr["en_passants"][i][0][x]:
-                fen[-1] = fen[-1][:-1]+chr(97+x)+str(1+list(arr["en_passants"][i][0][x]).index(1))
+            fen[-1] += " " + "".join(
+                [CASTLING[x] for x in range(4) if arr["castlings"][i][x] == 1]
+            )  # en_passants
+        fen[-1] += " -"
+        for line in range(8):
+            if 1 in arr["en_passants"][i][0][line]:
+                char_coordinate = chr(97 + line)
+                number_coordinate = str(
+                    1 + list(arr["en_passants"][i][0][line]).index(1)
+                )
+                fen[-1] = fen[-1][:-1] + char_coordinate + number_coordinate
                 break
-        fen[-1]+=" "+str(arr["half_moves"][i])+" "+str(arr["full_moves"][i])
+        fen[-1] += " " + str(arr["half_moves"][i]) + " " + str(arr["full_moves"][i])
     return fen
-    
 
-if __name__ == '__main__':
-    obj = Preprocessor(IteratorPgn(200, [["lichessPrepared.pgn"],["lichess.pgn.bz2"]], 600, 100))
+
+if __name__ == "__main__":
+    obj = Preprocessor(
+        IteratorPgn(200, [["lichessPrepared.pgn"], ["lichess.pgn.bz2"]], 600, 100)
+    )
     for i in obj:
         print(i)
-        
-        
