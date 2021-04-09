@@ -29,9 +29,16 @@ class FENGenerator:
         else:
             self.pgn_paths = pgn_path
         # pgn_file - currently used data file
+        self.pgn_file = None
         self.get_new_file(0)
 
+    def closeFile(self):
+        if self.pgn_file != None:
+            self.pgn_file.close()
+
     def get_new_file(self, index):
+        if self.pgn_file != None:
+            self.pgn_file.close()
         if ".bz2" in self.pgn_paths[index]:
             self.pgn_file = bz2.open(self.pgn_paths[index])
         elif "https://" in self.pgn_paths[index]:
@@ -137,6 +144,14 @@ class PGNIterator(object):
             process = mp.Process(target=generator.play_func, args=())
             process.start()
             self.active_processes.append(process)
+
+    def close(self):
+        for generator in self.generators:
+            generator.closeFile()
+        for process in self.active_processes:
+            process.terminate()
+            process.join()
+        self.active_processes.clear()
 
     def __iter__(self):
         """
@@ -288,6 +303,9 @@ class Preprocessor(object):
             "half_moves": half_moves,
             "full_moves": full_moves,
         }
+
+    def close(self):
+        self.iterator.close()
 
     def __iter__(self):
         """

@@ -1,9 +1,11 @@
-from GeneratorPgn import Preprocessor, ArrayToFen, FENGenerator
+from GeneratorPgn import Preprocessor, ArrayToFen, FENGenerator, PGNIterator
 import chess
 import numpy as np
 import torch.multiprocessing as mp
 from collections import deque
 import pickle
+import unittest
+
 
 path_to_test_pgn = "lichessTestPgn.pgn"
 path_to_test_fen = "lichessTestFen.pgn"
@@ -17,36 +19,77 @@ class testIterator:
     def __iter__(self):
         yield [self.generator.get_position()]
 
-
-generator = FENGenerator(mp.Queue(maxsize=4), path_to_test_pgn)
-answers = open(path_to_test_fen, "r")
-
-index = 0
-for answer in answers:
-    index += 1
-    data_from_generator = generator.get_position()
-    assert data_from_generator == answer.replace(
-        "\n", ""
-    ), "mistake in FENGenerator class, in example " + str(index)
+    def close(self):
+        self.generator.closeFile()
 
 
-with open(path_to_test_array, "rb") as config_dictionary_file:
-    answers = pickle.load(config_dictionary_file)
+class TestSum(unittest.TestCase):
+    def test_FENGenerator(self):
+        self.generator = FENGenerator(mp.Queue(maxsize=4), path_to_test_pgn)
+        self.answers = open(path_to_test_fen, "r")
+        self.index = 0
+        for answer in self.answers:
+            self.index += 1
+            self.data_from_generator = self.generator.get_position()
+            self.assertEqual(
+                self.data_from_generator,
+                answer.replace("\n", ""),
+                "mistake in FENGenerator class, in example " + str(self.index),
+            )
+        self.answers.close()
+        self.generator.closeFile()
 
-test_iterator = testIterator()
-test_loader = Preprocessor(test_iterator)
-index = 0
-for answer in answers:
-    index += 1
-    for i, j in test_loader:
-        assert (
-            np.array(i["boards"]) == np.array(answer["boards"])
-        ).all() == True, "mistake in Preprocessor class, in example " + str(index)
-        assert ArrayToFen(i) == j, (
-            "mistake in ArrayToFen function, in example "
-            + str(index)
-            + "\nIt should come out "
-            + str(j)
-            + " and it came out "
-            + str(ArrayToFen(i))
-        )
+    def test_Preprocessor(self):
+        with open(path_to_test_array, "rb") as config_dictionary_file:
+            self.answers = pickle.load(config_dictionary_file)
+        self.test_iterator = testIterator()
+        self.test_loader = Preprocessor(self.test_iterator)
+        self.index = 0
+        for answer in self.answers:
+            self.index += 1
+            for data, fen in self.test_loader:
+                for key in data:
+                    self.assertEqual(
+                        (np.array(data[key]) == np.array(answer[key])).all(),
+                        True,
+                        "mistake in Preprocessor class, in example "
+                        + str(self.index)
+                        + " in key "
+                        + key,
+                    )
+                self.assertEqual(
+                    ArrayToFen(data),
+                    fen,
+                    (
+                        "mistake in ArrayToFen function, in example "
+                        + str(self.index)
+                        + "\nIt should come out "
+                        + str(data)
+                        + " and it came out "
+                        + str(ArrayToFen(data))
+                    ),
+                )
+        self.test_loader.iterator.close()
+
+    def test_ArrayToFen(self):
+        self.test_loader = Preprocessor(PGNIterator(1, [path_to_test_pgn], 1, 1))
+        self.index = 0
+        for data, fen in self.test_loader:
+            self.index += 1
+            self.assertEqual(
+                ArrayToFen(data),
+                fen,
+                (
+                    "mistake in ArrayToFen function.\nIt should come out "
+                    + str(data)
+                    + " and it came out "
+                    + str(ArrayToFen(data))
+                ),
+            )
+            if self.index == 200:
+                self.test_loader.close()
+                break
+
+
+if __name__ == "__main__":
+    unittest.main()
