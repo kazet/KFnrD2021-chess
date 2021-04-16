@@ -6,8 +6,9 @@ from typing import Iterator, List, IO
 
 from preprocessor import extract_games, preprocess_data
 
-path = 'test\\example_games.pgn'  # example pgn with games, shortened to fit into repo
-compressed_path = 'test\\example_games.pgn.bz2'
+# example pgns with games, shortened to fit into repo
+path = os.path.join(os.path.dirname(__file__), 'example_games.pgn')
+compressed_path = os.path.join(os.path.dirname(__file__), 'example_games.pgn.bz2')
 
 
 class GamesExtractionTest(unittest.TestCase):
