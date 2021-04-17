@@ -16,7 +16,7 @@ def extract_games(path: str) -> Iterator[List[str]]:
         opn = bz2.open  # open file with decompressing if needed
     else:
         opn = open
-    with opn(path, 'r', encoding='utf-8') as file:
+    with opn(path, 'r') as file:
         for line in file:
             line = str(line)  # line can be bytes, so it should be converted
             if line.startswith('1'):  # Moves are in one line starting with 1
@@ -39,7 +39,9 @@ def preprocess_data(path: str, output: Optional[str] = None, *, delete_original:
     :return: path to compressed file
     """
     compressor = bz2.BZ2Compressor()
-    output = (output if output else path) + '.bz2'
+    output = (output if output else path)
+    if not output.endswith('.bz2'):
+        output += '.bz2'
     with open(output, 'wb') as f:
         for game in extract_games(path):  # extract and compress games one by one
             game_str = bytes(' '.join(game) + '\n', encoding='utf-8')
