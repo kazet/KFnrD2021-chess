@@ -39,7 +39,7 @@ def preprocess_data(path: str, output: Optional[str] = None, *, delete_original:
     :return: path to compressed file
     """
     compressor = bz2.BZ2Compressor()
-    output = output if output else 'proc_' + path
+    output = output if output else os.path.join(os.path.dirname(path), 'proc_' + os.path.basename(path))
     # modifying path is necessary, because otherwise we read and write to the same file
     if not output.endswith('.bz2'):
         output += '.bz2'
