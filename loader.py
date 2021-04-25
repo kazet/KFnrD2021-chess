@@ -7,8 +7,6 @@ import numpy as np
 import random
 import os
 
-import matplotlib.pyplot as plt
-
 
 # initial setup that looks ugly
 os.environ['OMP_NUM'] = '1'
