@@ -6,13 +6,13 @@ from collections import deque
 import numpy as np
 import random
 import os
+from urllib.request import urlopen
 
 
 # initial setup that looks ugly
-os.environ['OMP_NUM'] = '1'
-first_cords = {'a': 0, 'b': 1, 'c': 2, 'd': 3, 'e': 4, 'f': 5, 'g': 6, 'h': 7}
-second_cords = {'1': 0, '2': 1, '3': 2, '4': 3, '5': 4, '6': 5, '7': 6, '8': 7}
-pieces = {'P': 0, 'N': 1, 'B': 2, 'R': 3, 'Q': 4, 'K': 5,
+FIRST_CORDS = {'a': 0, 'b': 1, 'c': 2, 'd': 3, 'e': 4, 'f': 5, 'g': 6, 'h': 7}
+SECOND_CORDS = {'1': 0, '2': 1, '3': 2, '4': 3, '5': 4, '6': 5, '7': 6, '8': 7}
+PIECES = {'P': 0, 'N': 1, 'B': 2, 'R': 3, 'Q': 4, 'K': 5,
           'p': 6, 'n': 7, 'b': 8, 'r': 9, 'q': 10, 'k': 11}
 
 
@@ -26,6 +26,7 @@ class FENGenerator:
         """
 
         self.replay_queue = replay_queue
+        self.error_tolerance=2
         self.current_path = (
             0  # index of the path to the currently used data file in the pgn_paths list
         )
@@ -33,7 +34,7 @@ class FENGenerator:
             []
         )  # currently used line from the data file, representing one game
         self.board = chess.Board()  # the chessboard on which the moves are made
-        if type(pgn_path) == str:
+        if isinstance(pgn_path,str):
             self.pgn_paths = [pgn_path]
         else:
             self.pgn_paths = pgn_path
@@ -51,7 +52,7 @@ class FENGenerator:
         if ".bz2" in self.pgn_paths[index]:
             self.pgn_file = bz2.open(self.pgn_paths[index])
         elif "https://" in self.pgn_paths[index]:
-            self.pgn_file = urllib.request.urlopen(self.pgn_paths[index])
+            self.pgn_file = urlopen(self.pgn_paths[index])
         else:
             self.pgn_file = open(self.pgn_paths[index])
 
@@ -63,7 +64,7 @@ class FENGenerator:
         :return: None
         """
         line = self.pgn_file.readline()
-        if type(line) == bytes:
+        if isinstance(line,bytes):
             line = line.decode("utf-8")
         if line == "":
             self.current_path += 1
@@ -73,7 +74,7 @@ class FENGenerator:
             line = self.pgn_file.readline()
         self.current_line = line[:-1].split()
 
-    def get_position(self):
+    def get_position(self,n_error=0):
         """
         It makes the next move on the list and reads the positions on the board
         if it fails, I load another game from the data file and repeat the process
@@ -86,10 +87,12 @@ class FENGenerator:
             self.board.push_san(self.current_line[0])
             self.current_line.pop(0)
             return self.board.fen()
-        except:
+        except Exception as ex:
+            if(n_error>self.error_tolerance):
+                raise ex
             self.get_line()
             self.board.reset()
-            return self.get_position()
+            return self.get_position(n_error+1)
 
     def play_func(self):
         """
@@ -117,7 +120,7 @@ class PGNIterator(object):
         :param batch_size replay_initial: samples to initialize buffer before yielding
         :param batch_size n_generators: how many generators should generate data
         """
-        if type(generators_paths) == str:
+        if isinstance(generators_paths,str):
             n_generators = 1
         elif len(generators_paths) < n_generators:
             n_generators = len(generators_paths)
@@ -217,7 +220,7 @@ class Preprocessor(object):
             column = 0
             for piece in row:
                 try:
-                    p = pieces[piece]
+                    p = PIECES[piece]
                     board_position[p, column, r_idx] = 1.
                     column += 1
                 except KeyError:
@@ -236,7 +239,7 @@ class Preprocessor(object):
                 castling[3] = 1
         en_passant = np.zeros((1, 8, 8,), dtype=np.float32)
         if en_passant_str != '-':
-            en_passant[0, first_cords[en_passant_str[0]], second_cords[en_passant_str[1]]] = 1.
+            en_passant[0, FIRST_CORDS[en_passant_str[0]], SECOND_CORDS[en_passant_str[1]]] = 1.
         half_moves = int(half_moves_str)
         move_idx = int(move_idx_str)
         return {'board': torch.FloatTensor(board_position).to(self.device),
@@ -329,18 +332,18 @@ class StandardConvSuite(object):
             yield self.preprocess_batch(batch)
 
 
-def getListOfDataset(path, numberOfGenerators=1, keyword=""):
+def getListOfDataset(path, n_generators =1, keyword=""):
     """
     Preprocesses dictionary of tensors to conv-suitable planes
     :param path: path to the dataset folder
     :param keyword: keyword appearing in each desired file
-    :param numberOfGenerators: number of generators in the PGNIterator class
+    :param n_generators : number of generators in the PGNIterator class
     :return: 2d list of paths
     """
     _, _, filenames = next(os.walk(path))
-    filenames = [path+"/"+file for file in filenames if (keyword in file)]
-    part = max(1,int(len(filenames)/numberOfGenerators))
+    filenames = [path+"//"+file for file in filenames if (keyword in file)]
+    part = max(1,int(len(filenames)/n_generators ))
     if len(filenames) < 0:
         raise ValueError('there are no files with the given keyword')
-    filenames = [filenames[i*part:]+filenames[:i*part] for i in range(numberOfGenerators)]
+    filenames = [filenames[i*part:]+filenames[:i*part] for i in range(n_generators )]
     return filenames

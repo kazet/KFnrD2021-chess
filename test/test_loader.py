@@ -19,7 +19,7 @@ path_to_test_array = f"lichessTestArray.dictionary"
 path_to_test_tensor = f"lichessTestTensor.dictionary"
 
 
-class testIterator:
+class TestIterator:
     def __init__(self):
         self.generator = FENGenerator(mp.Queue(maxsize=4), path_to_test_pgn)
 
@@ -49,7 +49,7 @@ class TestSum(unittest.TestCase):
     def test_Preprocessor(self):
         with open(path_to_test_array, "rb") as config_dictionary_file:
             self.answers = pickle.load(config_dictionary_file)
-        self.test_iterator = testIterator()
+        self.test_iterator = TestIterator()
         self.test_loader = Preprocessor(self.test_iterator,torch.device("cpu"))
         self.index = 0
         for answer in self.answers:
@@ -70,7 +70,7 @@ class TestSum(unittest.TestCase):
     def test_StandardConvSuite(self):
         with open(path_to_test_tensor, "rb") as config_dictionary_file:
             self.answers = pickle.load(config_dictionary_file)
-        self.test_iterator = testIterator()
+        self.test_iterator = TestIterator()
         self.test_loader = StandardConvSuite(Preprocessor(self.test_iterator,torch.device("cpu")))
         self.index = 0
         for answer in self.answers:
