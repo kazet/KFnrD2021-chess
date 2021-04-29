@@ -27,7 +27,7 @@ class FENGenerator:
 
         self.replay_queue = replay_queue
         self.error_tolerance=2
-        self.current_path_index_index = (
+        self.current_path_index = (
             0  # index of the path to the currently used data file in the pgn_paths list
         )
         self.current_line = (

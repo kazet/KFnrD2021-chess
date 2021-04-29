@@ -44,7 +44,6 @@ class TestSum(unittest.TestCase):
             )
         self.answers.close()
         self.generator.closeFile()
-        print("Endend")
 
     def test_Preprocessor(self):
         with open(path_to_test_array, "rb") as config_dictionary_file:
