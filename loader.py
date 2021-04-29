@@ -27,7 +27,7 @@ class FENGenerator:
 
         self.replay_queue = replay_queue
         self.error_tolerance=2
-        self.current_path = (
+        self.current_path_index_index = (
             0  # index of the path to the currently used data file in the pgn_paths list
         )
         self.current_line = (
@@ -67,14 +67,14 @@ class FENGenerator:
         if isinstance(line,bytes):
             line = line.decode("utf-8")
         if line == "":
-            self.current_path += 1
-            if self.current_path >= len(self.pgn_paths):
-                self.current_path = 0
-            self.get_new_file(self.current_path)
+            self.current_path_index += 1
+            if self.current_path_index >= len(self.pgn_paths):
+                self.current_path_index = 0
+            self.get_new_file(self.current_path_index)
             line = self.pgn_file.readline()
         self.current_line = line[:-1].split()
 
-    def get_position(self,n_error=0):
+    def get_position(self):
         """
         It makes the next move on the list and reads the positions on the board
         if it fails, I load another game from the data file and repeat the process
@@ -87,12 +87,10 @@ class FENGenerator:
             self.board.push_san(self.current_line[0])
             self.current_line.pop(0)
             return self.board.fen()
-        except Exception as ex:
-            if(n_error>self.error_tolerance):
-                raise ex
+        except ValueError:
             self.get_line()
             self.board.reset()
-            return self.get_position(n_error+1)
+            return self.get_position()
 
     def play_func(self):
         """
@@ -307,6 +305,7 @@ class StandardConvSuite(object):
         boards = []
         for board, player in zip(batch['boards'], batch['players']):
             if player == 1:
+                #swapping players' positions
                 boards.append(board[[6, 7, 8, 9, 10, 11, 0, 1, 2, 3, 4, 5]])
             else:
                 boards.append(board)

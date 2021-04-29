@@ -7,8 +7,7 @@ import unittest
 import torch
 
 import os,sys,inspect
-currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
+parentdir = os.path.dirname(os.path.realpath(""))
 sys.path.insert(0,parentdir)
 
 from loader import Preprocessor, FENGenerator, PGNIterator, StandardConvSuite 
@@ -45,6 +44,7 @@ class TestSum(unittest.TestCase):
             )
         self.answers.close()
         self.generator.closeFile()
+        print("Endend")
 
     def test_Preprocessor(self):
         with open(path_to_test_array, "rb") as config_dictionary_file:

@@ -2,8 +2,8 @@ import torch
 import torch.optim as optim
 import torch.nn.functional as F
 from tensorboardX import SummaryWriter
-
 import numpy as np
+
 import settings
 import model
 import loader
@@ -39,7 +39,7 @@ if __name__ == '__main__':
         writer.add_scalar('num_layers', autoencoder.coder.conv_in.active_layers, idx)
 
         # Saving models and logging to console
-        print(loss_reconstruction_v)
+        print("Loss: ",loss_reconstruction_v)
         if not idx % settings.SAVE_INTERVAL:
             torch.save(autoencoder.state_dict(), f'checkpoints/model-{idx}-{np.round(loss_reconstruction_v.item(), 6)}.pth')
             print('SAVED MODEL TO CHECKPOINTS')
