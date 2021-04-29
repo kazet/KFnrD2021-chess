@@ -85,12 +85,12 @@ class FENGenerator:
             self.board.reset()
         try:
             self.board.push_san(self.current_line[0])
-            self.current_line.pop(0)
-            return self.board.fen()
         except ValueError:
             self.get_line()
             self.board.reset()
             return self.get_position()
+        self.current_line.pop(0)
+        return self.board.fen()
 
     def play_func(self):
         """
