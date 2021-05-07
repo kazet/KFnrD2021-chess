@@ -12,7 +12,7 @@ class INFPreprocessor(Preprocessor):
         self.device = device
 
 
-class INF(StandardConvSuite):
+class Inference (StandardConvSuite):
     def __init__(self, device: torch.device, model):
         """
         Preprocesses dictionary of tensors to conv-suitable planes
