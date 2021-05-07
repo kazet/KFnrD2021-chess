@@ -30,19 +30,30 @@ arrows_path = [
     "px-Arrow_rdt.png",
     "px-Arrow_ldt.png",
 ]
-pieces_sizes = [ 30, 40, 60, 80, 100, 140]
+pieces_sizes = [30, 40, 60, 80, 100, 140]
 selected_piece = ""
 pieces_padding = 10
-color_palette=["#2A1F19","#64533C","#F3F3F3","#AF6E63","#C5B0A8","#68493D","#4C413C","#6E635D","#8C8784","#8B644D"]
+color_palette = [
+    "#2A1F19",
+    "#64533C",
+    "#F3F3F3",
+    "#AF6E63",
+    "#C5B0A8",
+    "#68493D",
+    "#4C413C",
+    "#6E635D",
+    "#8C8784",
+    "#8B644D",
+]
 
 
 class Main(Frame):
-    def __init__(self, master, header_height, option_width, pieces_path,color_palette):
-        Frame.__init__(self, master,bg=color_palette[0])
+    def __init__(self, master, header_height, option_width, pieces_path, color_palette):
+        Frame.__init__(self, master, bg=color_palette[0])
         master.rowconfigure(0, weight=1)
         master.columnconfigure(0, weight=1)
         self.main = self
-        self.color_palette=color_palette
+        self.color_palette = color_palette
         self.fen_placement = "8/8/8/8/8/8/8/8"
         self.fen_player = "w"
         self.fen_castling = "-"
@@ -158,7 +169,7 @@ class BoardBox(Frame):
 class Board(Frame):
     def __init__(self, master, border_proportion=0.02):
         self.main = master.main
-        Frame.__init__(self, master,bg=self.main.color_palette[0])
+        Frame.__init__(self, master, bg=self.main.color_palette[0])
         master.rowconfigure(0, weight=1)
         master.columnconfigure(0, weight=1)
         self.border_proportion = border_proportion
@@ -302,11 +313,26 @@ class Options(Frame):
         global arrows_path
 
         pointer_y = 0
-        self.piece_label = Label(self, text="PIECES",bg=self.main.color_palette[2],fg=self.main.color_palette[0])
+        self.piece_label = Label(
+            self,
+            text="PIECES",
+            bg=self.main.color_palette[2],
+            fg=self.main.color_palette[0],
+        )
         self.piece_box = Frame(self, width=option_width, height=option_width * 3)
-        self.castling_label = Label(self, text="CASTLING",bg=self.main.color_palette[2],fg=self.main.color_palette[0])
+        self.castling_label = Label(
+            self,
+            text="CASTLING",
+            bg=self.main.color_palette[2],
+            fg=self.main.color_palette[0],
+        )
         self.castling_box = Frame(self, width=option_width, height=option_width)
-        self.player_label = Label(self, text="PLAYER\nWHO MOVES",bg=self.main.color_palette[2],fg=self.main.color_palette[0])
+        self.player_label = Label(
+            self,
+            text="PLAYER\nWHO MOVES",
+            bg=self.main.color_palette[2],
+            fg=self.main.color_palette[0],
+        )
         self.player_box = Frame(self, width=option_width, height=int(option_width / 2))
 
         self.piece_label.grid(row=0, column=0, sticky=E + W, pady=2)
@@ -504,18 +530,43 @@ class Header(Frame):
         self.bind("<Configure>", self._resize)
 
     def _create_widgets(self, header_height):
-        self.fen_box = Frame(self,bg=self.main.color_palette[9])
-        self.fen_entry = Entry(self.fen_box, justify=CENTER,bg=self.main.color_palette[2],fg=self.main.color_palette[0],font=("Courier", 12))
-        self.set_fen = Button(self.fen_box, text="SET FEN", command=self.main_set_fen,bg=self.main.color_palette[2],fg=self.main.color_palette[0])
+        self.fen_box = Frame(self, bg=self.main.color_palette[9])
+        self.fen_entry = Entry(
+            self.fen_box,
+            justify=CENTER,
+            bg=self.main.color_palette[2],
+            fg=self.main.color_palette[0],
+            font=("Courier", 12),
+        )
+        self.set_fen = Button(
+            self.fen_box,
+            text="SET FEN",
+            command=self.main_set_fen,
+            bg=self.main.color_palette[2],
+            fg=self.main.color_palette[0],
+        )
         self.fen_entry.bind("<Return>")
-        self.coder_box = Frame(self,bg=self.main.color_palette[9])
+        self.coder_box = Frame(self, bg=self.main.color_palette[9])
         self.coder_run = Button(
-            self.coder_box, text="FIND SIMILAR POSITION", command=self.main.run_coder,bg=self.main.color_palette[2],fg=self.main.color_palette[0]
+            self.coder_box,
+            text="FIND SIMILAR POSITION",
+            command=self.main.run_coder,
+            bg=self.main.color_palette[2],
+            fg=self.main.color_palette[0],
         )
         self.coder_path = Button(
-            self.coder_box, text="SET CODER", command=self.get_coder,bg=self.main.color_palette[2],fg=self.main.color_palette[0]
+            self.coder_box,
+            text="SET CODER",
+            command=self.get_coder,
+            bg=self.main.color_palette[2],
+            fg=self.main.color_palette[0],
         )
-        self.coder_label = Label(self.coder_box, text="Coder not set",bg=self.main.color_palette[2],fg=self.main.color_palette[0])
+        self.coder_label = Label(
+            self.coder_box,
+            text="Coder not set",
+            bg=self.main.color_palette[2],
+            fg=self.main.color_palette[0],
+        )
 
         self.fen_box.grid(
             row=0, column=1, sticky=E + W, padx=2, pady=2, ipadx=2, ipady=2
@@ -562,7 +613,7 @@ window_height = window.winfo_height()
 window_width = window.winfo_width()
 window.geometry("900x900")
 
-main_box = Main(window, 60, 100, pieces_path,color_palette)
+main_box = Main(window, 60, 100, pieces_path, color_palette)
 
 
 main_box.place(rely=0, relx=0, relwidth=1, relheight=1)
