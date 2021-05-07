@@ -3,7 +3,7 @@ import typer
 from pathlib import Path
 
 import settings
-import model
+from model import Coder
 from inference import INF
 
 
@@ -24,16 +24,15 @@ def main(
         dir_okay=False,
         readable=True,
         resolve_path=True,
-        help="Path to file with configuration enviromental variables",
+        help="Path to file with model",
     ),
 ):
-    model = model.Coder(settings.BOARD_SHAPE, settings.LATENT_SIZE).to(settings.DEVICE)
-    print(model_path)
+    model = Coder(settings.BOARD_SHAPE, settings.LATENT_SIZE).to(settings.DEVICE)
     model.load_state_dict(torch.load(model_path))
     model.eval()
 
-    test = INF(
-        torch.device("cpu"),
+    test = Inference(
+        settings.DEVICE,
         model,
     )
     with open(path) as f:
