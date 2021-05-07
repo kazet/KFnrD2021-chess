@@ -16,11 +16,25 @@ def main(
         readable=True,
         resolve_path=True,
         help="Path to file with fens",
-    )
+    ),
+    modelPath: Path = typer.Option(
+        ...,
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
+        resolve_path=True,
+        help="Path to file with configuration enviromental variables",
+    ),
 ):
+    model = model.Coder(settings.BOARD_SHAPE, settings.LATENT_SIZE).to(settings.DEVICE)
+    print(model_path)
+    model.load_state_dict(torch.load(model_path))
+    model.eval()
+
     test = INF(
         torch.device("cpu"),
-        model.Coder(settings.BOARD_SHAPE, settings.LATENT_SIZE).to(settings.DEVICE),
+        model,
     )
     with open(path) as f:
         fens = f.read().split("\n")
