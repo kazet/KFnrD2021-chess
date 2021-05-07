@@ -5,54 +5,35 @@ import os
 import chess
 from tkinter import filedialog
 
-from inference import INF
-
-
-home_path = os.path.dirname(os.path.abspath(__file__))
-pieces_name = "px-Chess_"
-pieces_path = {
-    "P": "plt",
-    "B": "blt",
-    "N": "nlt",
-    "R": "rlt",
-    "Q": "qlt",
-    "K": "klt",
-    "p": "pdt",
-    "b": "bdt",
-    "n": "ndt",
-    "r": "rdt",
-    "q": "qdt",
-    "k": "kdt",
-}
-arrows_path = [
-    "px-Arrow_rlt.png",
-    "px-Arrow_llt.png",
-    "px-Arrow_rdt.png",
-    "px-Arrow_ldt.png",
-]
-pieces_sizes = [30, 40, 60, 80, 100, 140]
-selected_piece = ""
-pieces_padding = 10
-color_palette = [
-    "#2A1F19",
-    "#64533C",
-    "#F3F3F3",
-    "#AF6E63",
-    "#C5B0A8",
-    "#68493D",
-    "#4C413C",
-    "#6E635D",
-    "#8C8784",
-    "#8B644D",
-]
+from inference import Inference
 
 
 class Main(Frame):
-    def __init__(self, master, header_height, option_width, pieces_path, color_palette):
+    def __init__(
+        self,
+        master,
+        header_height,
+        option_width,
+        color_palette,
+        home_path,
+        pieces_name,
+        pieces_path,
+        arrows_path,
+        images_sizes,
+        selected_piece,
+        pieces_padding,
+    ):
         Frame.__init__(self, master, bg=color_palette[0])
         master.rowconfigure(0, weight=1)
         master.columnconfigure(0, weight=1)
         self.main = self
+        self.home_path = home_path
+        self.pieces_name = pieces_name
+        self.pieces_path = pieces_path
+        self.arrows_path = arrows_path
+        self.images_sizes = images_sizes
+        self.selected_piece = selected_piece
+        self.pieces_padding = pieces_padding
         self.color_palette = color_palette
         self.fen_placement = "8/8/8/8/8/8/8/8"
         self.fen_player = "w"
@@ -102,16 +83,14 @@ class Main(Frame):
 
     def set_coder(self, filename):
         try:
-            self.coder = torch.load(PATH)
+            self.coder = torch.load(filename)
             self.coder.eval()
             device = torch.device(
                 "cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu"
             )
-            self.coder_launcher = INF(
-                torch.device("cpu"),
-                model.Coder(settings.BOARD_SHAPE, settings.LATENT_SIZE).to(
-                    settings.DEVICE
-                ),
+            self.coder_launcher = Inference(
+                device,
+                self.coder,
             )
             return True
         except:
@@ -213,52 +192,47 @@ class Board(Frame):
         for x in range(8):
             for y in range(8):
                 if self.board[x][y] != "":
-                    image = self.getImage(self.board[x][y])
+                    image = self.get_image(self.board[x][y])
                     self.content[x][y].config(image=image)
                     self.content[x][y].image = image
 
     def replace(self, x, y):
-        global selected_piece
-        global pieces_path
-        global home_path
-        if (self.board[x][y] == selected_piece or selected_piece == "") and self.board[
-            x
-        ][y] != "":
+        if (
+            self.board[x][y] == self.main.selected_piece
+            or self.main.selected_piece == ""
+        ) and self.board[x][y] != "":
             self.content[x][y].config(image="")
             self.board[x][y] = ""
-        elif selected_piece != "":
-            self.board[x][y] = selected_piece
-            image = self.getImage(selected_piece)
+        elif self.main.selected_piece != "":
+            self.board[x][y] = self.main.selected_piece
+            image = self.get_image(self.main.selected_piece)
             self.content[x][y].config(image=image)
             self.content[x][y].image = image
         self.main.fen_placement = self.get_fen()
         self.main.display_fen()
 
     def get_size(self, num):
-        global pieces_sizes
-        global pieces_padding
-        if num <= pieces_sizes[0] + pieces_padding:
-            return pieces_sizes[0]
+        if num <= self.main.images_sizes[0] + self.main.pieces_padding:
+            return self.main.images_sizes[0]
         else:
-            for i in pieces_sizes[1:]:
-                if num < i + pieces_padding:
+            for i in self.main.images_sizes[1:]:
+                if num < i + self.main.pieces_padding:
                     return i
-        return pieces_sizes[-1]
+        return self.main.images_sizes[-1]
 
-    def getImage(self, piece):
-        global pieces_name
-        global home_path
-        global pieces_path
+    def get_image(self, piece):
         size = self.get_size(
             (self.winfo_width() * (1 - 2 * self.border_proportion)) / 8
         )
         image = Image.open(
-            home_path
-            + "\\img\\"
-            + str(size)
-            + pieces_name
-            + pieces_path[piece]
-            + ".png"
+            os.path.join(
+                self.main.home_path,
+                "img\\",
+                str(size)
+                + self.main.pieces_name
+                + self.main.pieces_path[piece]
+                + ".png",
+            )
         )
         return ImageTk.PhotoImage(image)
 
@@ -291,7 +265,7 @@ class Board(Frame):
                         x += 1
                 else:
                     self.board[x][y] = j
-                    image = self.getImage(j)
+                    image = self.get_image(j)
                     self.content[x][y].config(image=image)
                     self.content[x][y].image = image
                     x += 1
@@ -307,11 +281,6 @@ class Options(Frame):
         self.last_selected_button = (0, 0)
 
     def _create_widgets(self, option_width):
-        global pieces_name
-        global home_path
-        global pieces_path
-        global arrows_path
-
         pointer_y = 0
         self.piece_label = Label(
             self,
@@ -349,12 +318,14 @@ class Options(Frame):
             for row in range(6):
                 size = self.get_size(option_width / 2)
                 image = Image.open(
-                    home_path
-                    + "\\img\\"
-                    + str(size)
-                    + pieces_name
-                    + pieces_path[pieces[column][row]]
-                    + ".png"
+                    os.path.join(
+                        self.main.home_path,
+                        "img\\",
+                        str(size)
+                        + self.main.pieces_name
+                        + self.main.pieces_path[pieces[column][row]]
+                        + ".png",
+                    )
                 )
                 image = ImageTk.PhotoImage(image)
                 command = partial(self.select, column, row, pieces[column][row])
@@ -376,7 +347,13 @@ class Options(Frame):
         size = self.get_size(option_width / 2 - 10)
         image = [
             ImageTk.PhotoImage(
-                Image.open(home_path + "\\img\\" + str(size) + arrows_path[i])
+                Image.open(
+                    os.path.join(
+                        self.main.home_path,
+                        "img\\",
+                        str(size) + self.main.arrows_path[i],
+                    )
+                )
             )
             for i in range(4)
         ]
@@ -428,7 +405,11 @@ class Options(Frame):
 
         size = self.get_size(option_width / 2)
         image = Image.open(
-            home_path + "\\img\\" + str(size) + pieces_name + pieces_path["K"] + ".png"
+            os.path.join(
+                self.main.home_path,
+                "img\\",
+                str(size) + self.main.pieces_name + self.main.pieces_path["K"] + ".png",
+            )
         )
         image = ImageTk.PhotoImage(image)
         self.player_w = Button(
@@ -440,7 +421,11 @@ class Options(Frame):
         )
         self.player_w.image = image
         image = Image.open(
-            home_path + "\\img\\" + str(size) + pieces_name + pieces_path["k"] + ".png"
+            os.path.join(
+                self.main.home_path,
+                "img\\",
+                str(size) + self.main.pieces_name + self.main.pieces_path["k"] + ".png",
+            )
         )
         image = ImageTk.PhotoImage(image)
         self.player_b = Button(
@@ -456,27 +441,25 @@ class Options(Frame):
         self.player_b.place(relx=0.5, rely=0, relwidth=0.5, relheight=1)
 
     def select(self, column, row, piece):
-        global selected_piece
-        if selected_piece == piece:
+        if self.main.selected_piece == piece:
             self.piece_buttons[column][row].config(bg=self.main.color_palette[7])
-            selected_piece = ""
+            self.main.selected_piece = ""
         else:
             self.piece_buttons[self.last_selected_button[0]][
                 self.last_selected_button[1]
             ].config(bg=self.main.color_palette[7])
             self.last_selected_button = (column, row)
             self.piece_buttons[column][row].config(bg=self.main.color_palette[3])
-            selected_piece = piece
+            self.main.selected_piece = piece
 
     def get_size(self, num):
-        global pieces_sizes
-        if num <= pieces_sizes[0] + pieces_padding:
-            return pieces_sizes[0]
+        if num <= self.main.images_sizes[0] + self.main.pieces_padding:
+            return self.main.images_sizes[0]
         else:
-            for i in pieces_sizes[1:]:
-                if num < i + pieces_padding:
+            for i in self.main.images_sizes[1:]:
+                if num < i + self.main.pieces_padding:
                     return i
-        return pieces_sizes[-1]
+        return self.main.images_sizes[-1]
 
     def display_castling(self, castling_type):
         if self.castling[castling_type] == 0:
@@ -605,15 +588,62 @@ class Header(Frame):
             self.coder_label["text"] = "Coder couldn't be set"
 
 
-main_sides_padding_y = 0.005
-main_sides_padding_x = 0.005
+home_path = os.path.dirname(os.path.abspath(__file__))
+pieces_name = "px-Chess_"
+pieces_path = {
+    "P": "plt",
+    "B": "blt",
+    "N": "nlt",
+    "R": "rlt",
+    "Q": "qlt",
+    "K": "klt",
+    "p": "pdt",
+    "b": "bdt",
+    "n": "ndt",
+    "r": "rdt",
+    "q": "qdt",
+    "k": "kdt",
+}
+arrows_path = [
+    "px-Arrow_rlt.png",
+    "px-Arrow_llt.png",
+    "px-Arrow_rdt.png",
+    "px-Arrow_ldt.png",
+]
+images_sizes = [30, 40, 60, 80, 100, 140]
+selected_piece = ""
+pieces_padding = 10
+color_palette = [
+    "#2A1F19",
+    "#64533C",
+    "#F3F3F3",
+    "#AF6E63",
+    "#C5B0A8",
+    "#68493D",
+    "#4C413C",
+    "#6E635D",
+    "#8C8784",
+    "#8B644D",
+]
 
 window = Tk()
 window_height = window.winfo_height()
 window_width = window.winfo_width()
 window.geometry("900x900")
 
-main_box = Main(window, 60, 100, pieces_path, color_palette)
+main_box = Main(
+    window,
+    60,
+    100,
+    color_palette,
+    home_path,
+    pieces_name,
+    pieces_path,
+    arrows_path,
+    images_sizes,
+    selected_piece,
+    pieces_padding,
+)
 
 
 main_box.place(rely=0, relx=0, relwidth=1, relheight=1)
