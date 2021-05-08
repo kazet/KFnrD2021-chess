@@ -6,6 +6,8 @@ import chess
 from tkinter import filedialog
 
 from inference import Inference
+import settings
+from model import Coder
 
 
 class Main(Frame):
@@ -83,13 +85,11 @@ class Main(Frame):
 
     def set_coder(self, filename):
         try:
-            self.coder = torch.load(filename)
+            self.coder = Coder(settings.BOARD_SHAPE, settings.LATENT_SIZE).to(settings.DEVICE)
+            self.coder.load_state_dict(torch.load(model_path))
             self.coder.eval()
-            device = torch.device(
-                "cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu"
-            )
             self.coder_launcher = Inference(
-                device,
+                settings.DEVICE,
                 self.coder,
             )
             return True
