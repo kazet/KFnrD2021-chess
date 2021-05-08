@@ -16,3 +16,5 @@ datasets and perform the necessary preprocessing.
 You have to replace `<datasets...>` with names of datasets
 from [lichess.org](https://database.lichess.org) in format 
 `yyyy-mm`.
+
+![Scheme](https://ibb.co/HnXpmh2)
