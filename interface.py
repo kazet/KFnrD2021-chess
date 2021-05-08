@@ -227,7 +227,7 @@ class Board(Frame):
         image = Image.open(
             os.path.join(
                 self.main.home_path,
-                "img\\",
+                "img",
                 str(size)
                 + self.main.pieces_name
                 + self.main.pieces_path[piece]
@@ -320,7 +320,7 @@ class Options(Frame):
                 image = Image.open(
                     os.path.join(
                         self.main.home_path,
-                        "img\\",
+                        "img",
                         str(size)
                         + self.main.pieces_name
                         + self.main.pieces_path[pieces[column][row]]
@@ -350,7 +350,7 @@ class Options(Frame):
                 Image.open(
                     os.path.join(
                         self.main.home_path,
-                        "img\\",
+                        "img",
                         str(size) + self.main.arrows_path[i],
                     )
                 )
@@ -407,7 +407,7 @@ class Options(Frame):
         image = Image.open(
             os.path.join(
                 self.main.home_path,
-                "img\\",
+                "img",
                 str(size) + self.main.pieces_name + self.main.pieces_path["K"] + ".png",
             )
         )
@@ -423,7 +423,7 @@ class Options(Frame):
         image = Image.open(
             os.path.join(
                 self.main.home_path,
-                "img\\",
+                "img",
                 str(size) + self.main.pieces_name + self.main.pieces_path["k"] + ".png",
             )
         )
