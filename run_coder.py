@@ -17,18 +17,9 @@ def main(
         resolve_path=True,
         help="Path to file with fens",
     ),
-    modelPath: Path = typer.Option(
-        ...,
-        exists=True,
-        file_okay=True,
-        dir_okay=False,
-        readable=True,
-        resolve_path=True,
-        help="Path to file with model",
-    ),
 ):
     model = Coder(settings.BOARD_SHAPE, settings.LATENT_SIZE).to(settings.DEVICE)
-    model.load_state_dict(torch.load(model_path))
+    model.load_state_dict(torch.load(setting.CODER_PATH))
     model.eval()
 
     test = Inference(
