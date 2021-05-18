@@ -61,6 +61,7 @@ def find_similar(fen, num=1):
     :return: list of games with similar positions
     """
     coder = model.Coder(settings.BOARD_SHAPE, settings.LATENT_SIZE).to(settings.DEVICE)
+    coder.load_state_dict(torch.load(setting.CODER_PATH))
     coder.eval()
     inf = Inference(settings.DEVICE, coder)
     target = inf.predict([fen]).tolist()[0]

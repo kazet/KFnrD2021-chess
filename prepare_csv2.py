@@ -27,7 +27,7 @@ def get_move(line):
 
 
 coder = model.Coder(settings.BOARD_SHAPE, settings.LATENT_SIZE).to(settings.DEVICE)
-# coder.load_state_dict(torch.load(setting.CODER_PATH))
+coder.load_state_dict(torch.load(setting.CODER_PATH))
 coder.eval()
 inf = Inference(settings.DEVICE, coder)
 csv_name = "embeding_lite2.csv"
