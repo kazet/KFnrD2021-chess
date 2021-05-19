@@ -27,7 +27,7 @@ def get_move(line):
 
 
 coder = model.Coder(settings.BOARD_SHAPE, settings.LATENT_SIZE).to(settings.DEVICE)
-coder.load_state_dict(torch.load(setting.CODER_PATH))
+#coder.load_state_dict(torch.load(setting.CODER_PATH))
 coder.eval()
 inf = Inference(settings.DEVICE, coder)
 csv_name = "embeding_lite2.csv"
@@ -35,11 +35,7 @@ csv_name = "embeding_lite2.csv"
 with open(csv_name, "w", newline="") as file:
     writer = csv.writer(file, delimiter=";")
     writer.writerow(["Autor", "Number", "Move", "Embeding"])
-    conn = pyodbc.connect(
-        r"Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ="
-        + settings.ACCES_DATABASE
-        + ";"
-    )
+    conn = pyodbc.connect(settings.DATABASE)
     cursor = conn.cursor()
     cursor.execute("select * FROM Games_lite")
     for row in cursor.fetchall():

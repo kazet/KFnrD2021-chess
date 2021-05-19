@@ -79,11 +79,7 @@ def find_similar(fen, num=1):
     coder.eval()
     inf = Inference(settings.DEVICE, coder)
     target = inf.predict([fen]).tolist()[0]
-    conn = pyodbc.connect(
-        r"Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ="
-        + settings.ACCES_DATABASE
-        + ";"
-    )
+    conn = pyodbc.connect(settings.DATABASE)
     cursor = conn.cursor()
     cursor.execute("select Embeding FROM Embeding")
     matrix = cursor.fetchall()
@@ -95,6 +91,9 @@ def find_similar(fen, num=1):
 
 class games:
     def __init__(self, data):
+        """
+        :param data: list from find_similar function
+        """
         self.board = chess.Board()
         self.moves = []
         self.current_move = 0

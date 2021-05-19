@@ -688,11 +688,11 @@ class PGNOptions(Frame):
         )
 
         self.exit_button.grid(row=0, column=0, sticky=E + W, pady=2)
-        self.info_box.grid(row=1, column=0, sticky=E + W, pady=2)
-        self.game_change.grid(row=2, column=0, sticky=E + W, pady=2)
-        self.game_box.grid(row=3, column=0, sticky=E + W, ipadx=2, padx=2)
-        self.position_change.grid(row=4, column=0, sticky=E + W, pady=2)
-        self.position_box.grid(row=5, column=0, sticky=E + W, ipadx=2, padx=2)
+        self.game_change.grid(row=1, column=0, sticky=E + W, pady=2)
+        self.game_box.grid(row=2, column=0, sticky=E + W, ipadx=2, padx=2)
+        self.position_change.grid(row=3, column=0, sticky=E + W, pady=2)
+        self.position_box.grid(row=4, column=0, sticky=E + W, ipadx=2, padx=2)
+        self.info_box.grid(row=5, column=0, sticky=E + W, pady=2)
 
         self.castling = [0, 0, 0, 0]
         size = self.get_size(option_width / 3 - 5)
@@ -795,6 +795,8 @@ class PGNOptions(Frame):
 
     def set_info(self, info):
         text = ""
+        for label in self.info_labels:
+            label.grid_forget()
         del self.info_labels
         self.info_labels = []
         for i in info:
@@ -808,12 +810,16 @@ class PGNOptions(Frame):
                         anchor=CENTER,
                     )
                 )
+                text = info[i]
+                if len(text) > 18 and len(text.split()) > 1:
+                    text = text.split()
+                    text = text[0]+"\n"+"".join(text[1:])
                 self.info_labels.append(
                     Label(
                         self.info_box,
                         bg=self.main.color_palette[2],
                         fg=self.main.color_palette[0],
-                        text=info[i],
+                        text=text,
                         anchor=CENTER,
                     )
                 )
