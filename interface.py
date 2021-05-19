@@ -908,6 +908,8 @@ color_palette = [
 ]
 
 window = Tk()
+window.iconbitmap('img//icon.ico')
+window.title('Chess Autoencoder')
 window_height = window.winfo_height()
 window_width = window.winfo_width()
 window.geometry("900x900")
