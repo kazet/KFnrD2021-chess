@@ -3,6 +3,8 @@ import pyodbc
 from scipy.spatial.distance import cdist
 import numpy as np
 import json
+import chess
+import re
 
 import settings
 import model
@@ -11,6 +13,18 @@ from inference import Inference
 
 def key(i):
     return i[1]
+
+
+def get_move(line):
+    line = str(line)
+    game = []  # list of moves in pgn notation
+    for move in re.findall(
+        r"[^{\[.}\]]+ ", line.replace("?", "").replace("!", "")
+    ):  # Extract all moves without comments
+        game.extend(
+            move.strip().split(" ")
+        )  # Sometimes one string contains two moves with space between
+    return game
 
 
 def find_lowest(array, num, key=key):
@@ -61,7 +75,7 @@ def find_similar(fen, num=1):
     :return: list of games with similar positions
     """
     coder = model.Coder(settings.BOARD_SHAPE, settings.LATENT_SIZE).to(settings.DEVICE)
-    coder.load_state_dict(torch.load(setting.CODER_PATH))
+    # coder.load_state_dict(torch.load(setting.CODER_PATH))
     coder.eval()
     inf = Inference(settings.DEVICE, coder)
     target = inf.predict([fen]).tolist()[0]
@@ -76,8 +90,56 @@ def find_similar(fen, num=1):
     matrix = [json.loads(x[0])[0] for x in matrix]
     scores = cdist(matrix, np.atleast_2d([target]))
     idx = find_lowest(scores, num)
-    return find_game(idx, cursor)
+    return games(find_game(idx, cursor))
 
 
-if __name__ == "__main__":
-    print(find_similar("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 2))
+class games:
+    def __init__(self, data):
+        self.board = chess.Board()
+        self.moves = []
+        self.current_move = 0
+        self.current_game = 0
+        self.main_move = []
+        self.info = []
+        for game in data:
+            info = {}
+            for inf in game[2].split("|")[:-1]:
+                info[inf.split("'")[0][1:]] = inf.split("'")[1]
+            self.info.append(info)
+            self.moves.append(get_move(game[3]))
+            self.main_move.append(game[4])
+        self.set_board()
+
+    def on_main_move(self):
+        return self.current_move == self.main_move[self.current_game]
+
+    def set_board(self):
+        self.board.reset()
+        for i in range(self.main_move[self.current_game]):
+            self.board.push_san(self.moves[self.current_game][i])
+        self.current_move = self.main_move[self.current_game]
+
+    def next_game(self):
+        self.current_game += 1
+        if self.current_game >= len(self.moves):
+            self.current_game = 0
+        self.set_board()
+
+    def last_game(self):
+        self.current_game -= 1
+        if self.current_game < 0:
+            self.current_game = len(self.moves) - 1
+        self.set_board()
+
+    def next_move(self):
+        if len(self.moves[self.current_game]) > self.current_move:
+            self.board.push_san(self.moves[self.current_game][self.current_move])
+            self.current_move += 1
+
+    def last_move(self):
+        if self.current_move > 0:
+            self.board.pop()
+            self.current_move -= 1
+
+    def get_info(self):
+        return self.info[self.current_game]

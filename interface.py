@@ -9,6 +9,7 @@ import torch
 from inference import Inference
 import settings
 from model import Coder
+from find_similar import find_similar
 
 
 class Main(Frame):
@@ -26,7 +27,7 @@ class Main(Frame):
         selected_piece,
         pieces_padding,
         message_width,
-        message_height
+        message_height,
     ):
         Frame.__init__(self, master, bg=color_palette[0])
         master.rowconfigure(0, weight=1)
@@ -35,7 +36,7 @@ class Main(Frame):
         self.coder_set = False
         self.home_path = home_path
         self.current_pages = 0
-        self.pages_fens = ["8/8/8/8/8/8/8/8 w -"]
+        self.pages_fens = ["rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
         self.pieces_name = pieces_name
         self.pieces_path = pieces_path
         self.arrows_path = arrows_path
@@ -43,25 +44,27 @@ class Main(Frame):
         self.selected_piece = selected_piece
         self.pieces_padding = pieces_padding
         self.color_palette = color_palette
-        self.fen_placement = "8/8/8/8/8/8/8/8"
+        self.entering = True
+        self.fen_placement = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
         self.fen_player = "w"
-        self.fen_castling = "-"
+        self.fen_castling = "KQkq"
         self.header_height = header_height
         self.option_width = option_width
-        self._create_widgets(message_width,message_height)
+        self._create_widgets(message_width, message_height)
         self.bind("<Configure>", self._resize)
-        self.winfo_toplevel().minsize(400, 400)
+        self.winfo_toplevel().minsize(600, 600)
         self.display_fen()
         self.coder = None
+        self.games = None
         self.coder_launcher = None
-        self.entering = True
+        self.set_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
 
-    def _create_widgets(self,message_width,message_height):
+    def _create_widgets(self, message_width, message_height):
         self.board_box = BoardBox(self)
         self.option_box = Options(self, self.option_width)
         self.header = Header(self, header_height=self.header_height)
         self.pgn_box = PGNOptions(self, self.option_width)
-        self.tensor_message = TensorDisplayer(self,message_width,message_height)
+        self.tensor_message = TensorDisplayer(self, message_width, message_height)
 
         self.board_box.grid(row=1, column=0, sticky=N + S + E + W)
         self.option_box.grid(row=1, column=1, sticky=N + S + E + W)
@@ -78,11 +81,23 @@ class Main(Frame):
 
     def display_fen(self):
         self.header.display_fen(self.fen_placement, self.fen_player, self.fen_castling)
-        self.pages_fens[self.current_pages]=" ".join([self.fen_placement, self.fen_player, self.fen_castling])
+        if self.entering:
+            self.pages_fens[self.current_pages] = " ".join(
+                [self.fen_placement, self.fen_player, self.fen_castling, "- 0 0"]
+            )
 
-    def set_fen(self, fen):
+    def set_fen(self, fen=None):
+        if self.entering == False:
+            fen = self.games.board.fen()
+            split_fen = fen.split()
+            self.fen_placement = split_fen[0]
+            self.fen_player = split_fen[1]
+            self.fen_castling = split_fen[2]
+            self.board_box.board.set_board(self.fen_placement)
+            return
         try:
             a = chess.Board(fen)
+            fen = a.fen()
             del a
             split_fen = fen.split()
             self.fen_placement = split_fen[0]
@@ -90,14 +105,16 @@ class Main(Frame):
             self.fen_castling = split_fen[2]
             self.option_box.set_option(self.fen_player, self.fen_castling)
             self.board_box.board.set_board(self.fen_placement)
-            self.pages_fens[self.current_pages]=fen
+            self.pages_fens[self.current_pages] = fen
         except ValueError:
             self.header.display_fen("Incorrect fen", "", "")
 
     def set_coder(self, filename):
         try:
-            self.coder = Coder(settings.BOARD_SHAPE, settings.LATENT_SIZE).to(settings.DEVICE)
-            self.coder.load_state_dict(torch.load(model_path))
+            self.coder = Coder(settings.BOARD_SHAPE, settings.LATENT_SIZE).to(
+                settings.DEVICE
+            )
+            self.coder.load_state_dict(torch.load(filename))
             self.coder.eval()
             self.coder_launcher = Inference(
                 settings.DEVICE,
@@ -105,26 +122,40 @@ class Main(Frame):
             )
             self.coder_set = True
             return True
-        except:
+        except Exception:
             return False
 
     def run_coder(self):
         if self.coder_set:
-            output = str(self.coder_launcher.predict(fens))
+            output = str(
+                self.coder_launcher.predict([self.pages_fens[self.current_pages]])
+            )
             self.display_tensor(output)
-        self.display_tensor(str(torch.randn(1,1,4,4)))
-        self.option_box.grid_forget()
-        self.pgn_box.grid(row=1, column=1, sticky=N + S + E + W)
-        
-    def exit_coder (self):
+            self.games = find_similar(self.pages_fens[self.current_pages], 10)
+            self.entering = False
+            self.set_fen()
+            self.option_box.grid_forget()
+            self.pgn_box.grid(row=1, column=1, sticky=N + S + E + W)
+            self.pgn_box.set_info(self.games.get_info())
+            self.pgn_box.set_position_number()
+
+    def games_command(self):
+        self.games.last_move()
+        self.set_fen()
+
+    def exit_coder(self):
         self.pgn_box.grid_forget()
         self.option_box.grid(row=1, column=1, sticky=N + S + E + W)
-        
-    def display_tensor(self,message):
+        self.set_fen(self.pages_fens[self.current_pages])
+        self.entering = True
+
+    def display_tensor(self, message):
         self.tensor_message.set_message(message)
         self.tensor_message.place(relx=0.5, rely=0.5, anchor=CENTER)
+
     def stop_display_tensor(self):
         self.tensor_message.place_forget()
+
 
 class BoardBox(Frame):
     def __init__(self, master):
@@ -608,7 +639,7 @@ class Header(Frame):
 
     def get_coder(self):
         filename = filedialog.askopenfilename(
-            filetypes=[("pickle format", "*.pt"), ("pytorch compiled", "*.pth")]
+            filetypes=[("model file", ("*.pt", "*.pth"))]
         )
         if self.main.set_coder(filename):
             self.coder_label["text"] = "Coder set"
@@ -627,14 +658,18 @@ class PGNOptions(Frame):
 
     def _create_widgets(self, option_width):
         pointer_y = 0
-        self.exit_button = Button(self, text="BACK", bg=self.main.color_palette[3],
-            activebackground=self.main.color_palette[4], command = self.main.exit_coder)
-        self.info_label = Label(
+        self.exit_button = Button(
             self,
-            text="PIECES",
-            bg=self.main.color_palette[2],
-            fg=self.main.color_palette[0],
+            text="BACK",
+            bg=self.main.color_palette[3],
+            activebackground=self.main.color_palette[4],
+            command=self.main.exit_coder,
         )
+        self.info_box = Frame(
+            self,
+            bg=self.main.color_palette[2],
+        )
+        self.info_labels = []
         self.game_change = Label(
             self,
             text="CHANGE\nGAME",
@@ -648,18 +683,19 @@ class PGNOptions(Frame):
             bg=self.main.color_palette[2],
             fg=self.main.color_palette[0],
         )
-        self.position_box = Frame(self, width=option_width, height=int(option_width / 3))
-        
-        self.exit_button.grid(row=0, column=0, sticky=E + W , pady=2)
-        self.info_label.grid(row=1, column=0, sticky=E + W, pady=2)
+        self.position_box = Frame(
+            self, width=option_width, height=int(option_width / 3)
+        )
+
+        self.exit_button.grid(row=0, column=0, sticky=E + W, pady=2)
+        self.info_box.grid(row=1, column=0, sticky=E + W, pady=2)
         self.game_change.grid(row=2, column=0, sticky=E + W, pady=2)
         self.game_box.grid(row=3, column=0, sticky=E + W, ipadx=2, padx=2)
         self.position_change.grid(row=4, column=0, sticky=E + W, pady=2)
         self.position_box.grid(row=5, column=0, sticky=E + W, ipadx=2, padx=2)
 
-
         self.castling = [0, 0, 0, 0]
-        size = self.get_size(option_width / 2 - 10)
+        size = self.get_size(option_width / 3 - 5)
         image = [
             ImageTk.PhotoImage(
                 Image.open(
@@ -670,61 +706,83 @@ class PGNOptions(Frame):
                     )
                 )
             )
-            for i in range(2,4)
+            for i in range(2, 4)
         ]
         self.last_game = Button(
             self.game_box,
             image=image[1],
             bg=self.main.color_palette[7],
             activebackground=self.main.color_palette[8],
+            command=lambda: [
+                self.main.games.last_game(),
+                self.main.set_fen(),
+                self.set_game_number(),
+            ],
         )
         self.last_game.image = image[1]
-        
+
         self.next_game = Button(
             self.game_box,
             image=image[0],
             bg=self.main.color_palette[7],
             activebackground=self.main.color_palette[8],
+            command=lambda: [
+                self.main.games.next_game(),
+                self.main.set_fen(),
+                self.set_game_number(),
+            ],
         )
         self.next_game.image = image[0]
-        
+
         self.game_number = Label(
             self.game_box,
             text="1",
-            bg=self.main.color_palette[7],
+            bg=self.main.color_palette[8],
             fg=self.main.color_palette[2],
+            font=("TkDefaultFont", 16),
         )
 
-        self.last_game.place(relx=0, rely=0, relwidth=1/3, relheight=1)
-        self.next_game.place(relx=2/3, rely=0, relwidth=1/3, relheight=1)
-        self.game_number.place(relx=1/3, rely=0, relwidth=1/3, relheight=1)
+        self.last_game.place(relx=0, rely=0, relwidth=1 / 3, relheight=1)
+        self.next_game.place(relx=2 / 3, rely=0, relwidth=1 / 3, relheight=1)
+        self.game_number.place(relx=1 / 3, rely=0, relwidth=1 / 3, relheight=1)
 
         self.last_position = Button(
             self.position_box,
             image=image[1],
             bg=self.main.color_palette[7],
             activebackground=self.main.color_palette[8],
+            command=lambda: [
+                self.main.games.last_move(),
+                self.main.set_fen(),
+                self.set_position_number(),
+            ],
         )
         self.last_position.image = image[1]
-        
+
         self.next_position = Button(
             self.position_box,
             image=image[0],
             bg=self.main.color_palette[7],
             activebackground=self.main.color_palette[8],
+            command=lambda: [
+                self.main.games.next_move(),
+                self.main.set_fen(),
+                self.set_position_number(),
+            ],
         )
         self.next_position.image = image[0]
-        
+
         self.position_number = Label(
             self.position_box,
             text="1",
-            bg=self.main.color_palette[7],
+            bg=self.main.color_palette[8],
             fg=self.main.color_palette[2],
+            font=("TkDefaultFont", 16),
         )
 
-        self.last_position.place(relx=0, rely=0, relwidth=1/3, relheight=1)
-        self.next_position.place(relx=2/3, rely=0, relwidth=1/3, relheight=1)
-        self.position_number.place(relx=1/3, rely=0, relwidth=1/3, relheight=1)
+        self.last_position.place(relx=0, rely=0, relwidth=1 / 3, relheight=1)
+        self.next_position.place(relx=2 / 3, rely=0, relwidth=1 / 3, relheight=1)
+        self.position_number.place(relx=1 / 3, rely=0, relwidth=1 / 3, relheight=1)
 
     def get_size(self, num):
         if num <= self.main.images_sizes[0] + self.main.pieces_padding:
@@ -735,22 +793,73 @@ class PGNOptions(Frame):
                     return i
         return self.main.images_sizes[-1]
 
+    def set_info(self, info):
+        text = ""
+        del self.info_labels
+        self.info_labels = []
+        for i in info:
+            if info[i] != "":
+                self.info_labels.append(
+                    Label(
+                        self.info_box,
+                        bg=self.main.color_palette[4],
+                        fg=self.main.color_palette[0],
+                        text=i.upper(),
+                        anchor=CENTER,
+                    )
+                )
+                self.info_labels.append(
+                    Label(
+                        self.info_box,
+                        bg=self.main.color_palette[2],
+                        fg=self.main.color_palette[0],
+                        text=info[i],
+                        anchor=CENTER,
+                    )
+                )
+        self.info_box.rowconfigure(0, weight=1)
+        self.info_box.columnconfigure(0, weight=1)
+        for i, label in enumerate(self.info_labels):
+            label.grid(row=i, column=0, sticky=E + W, pady=1, padx=2)
+
+    def set_game_number(self):
+        self.game_number["text"] = str(self.main.games.current_game + 1)
+        self.set_position_number()
+        self.set_info(self.main.games.get_info())
+
+    def set_position_number(self):
+        self.position_number["text"] = str(self.main.games.current_move)
+        if self.main.games.on_main_move():
+            self.position_number["fg"] = self.main.color_palette[4]
+            self.position_number["font"] = ("TkDefaultFont", 20)
+        else:
+            self.position_number["fg"] = self.main.color_palette[2]
+            self.position_number["font"] = ("TkDefaultFont", 16)
+
 
 class TensorDisplayer(Frame):
-    def __init__(self, master,message_width,message_height):
+    def __init__(self, master, message_width, message_height):
         self.main = master.main
-        Frame.__init__(self, master, bg=self.main.color_palette[8],width=message_width,height=message_height)
+        Frame.__init__(
+            self,
+            master,
+            bg=self.main.color_palette[8],
+            width=message_width,
+            height=message_height,
+        )
         self._create_widgets()
         self.last_selected_button = (0, 0)
 
     def _create_widgets(self):
         self.tensor_label = Label(self)
-        self.exit_button = Button(self,command = self.main.stop_display_tensor,text = "OK")
-        
-        self.tensor_label.place(relx=0.1,rely=0.1,relwidth=0.8,relheight=0.8)
-        self.exit_button.place(relx=0.92,rely=0.92,relwidth=0.06,relheight=0.06)
-    
-    def set_message(self,message):
+        self.exit_button = Button(
+            self, command=self.main.stop_display_tensor, text="OK"
+        )
+
+        self.tensor_label.place(relx=0.03, rely=0.1, relwidth=0.94, relheight=0.8)
+        self.exit_button.place(relx=0.91, rely=0.91, relwidth=0.08, relheight=0.08)
+
+    def set_message(self, message):
         self.tensor_label.config(text=message)
 
 
@@ -809,8 +918,8 @@ main_box = Main(
     images_sizes,
     selected_piece,
     pieces_padding,
-    400,
-    300
+    600,
+    200,
 )
 
 
