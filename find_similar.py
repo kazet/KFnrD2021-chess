@@ -1,6 +1,6 @@
 import torch
 import pyodbc
-from scipy.spatial.distance import cdist
+from scipy.spatial.distance import cdist, cosine
 import numpy as np
 import json
 import chess
@@ -14,6 +14,16 @@ from inference import Inference
 def key(i):
     return i[1]
 
+def l1_loss(matrix,target):
+    return [np.sum(np.abs(np.array(m)-np.array(target))) for m in matrix]
+    
+def nearest(matrix,target):
+    return cdist(matrix, np.atleast_2d([target]))
+    
+def cosine_dist(matrix,target):
+    return [cosine(m, target) for m in matrix]
+    
+similarity_functions = {"Closest vectors":nearest,"L1 Loos":l1_loss,"Cosine distance":cosine_dist}
 
 def get_move(line):
     line = str(line)
@@ -67,11 +77,12 @@ def find_game(idx, cursor):
     return result
 
 
-def find_similar(fen, num=1):
+def find_similar(fen, num=1,similarity_function = nearest):
     """
     Finds x smallest values ​​in a table.
     :param fen: String with chess position in Fen notation
     :param num: Number of games to be found
+    :param similarity_function: Function that measures the similarity of vectors
     :return: list of games with similar positions
     """
     coder = model.Coder(settings.BOARD_SHAPE, settings.LATENT_SIZE).to(settings.DEVICE)
@@ -84,7 +95,7 @@ def find_similar(fen, num=1):
     cursor.execute("select Embeding FROM Embeding")
     matrix = cursor.fetchall()
     matrix = [json.loads(x[0])[0] for x in matrix]
-    scores = cdist(matrix, np.atleast_2d([target]))
+    scores = similarity_function(matrix,target)
     idx = find_lowest(scores, num)
     return games(find_game(idx, cursor))
 

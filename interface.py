@@ -9,15 +9,13 @@ import torch
 from inference import Inference
 import settings
 from model import Coder
-from find_similar import find_similar
+from find_similar import find_similar,similarity_functions
 
 
 class Main(Frame):
     def __init__(
         self,
         master,
-        header_height,
-        option_width,
         color_palette,
         home_path,
         pieces_name,
@@ -26,8 +24,12 @@ class Main(Frame):
         images_sizes,
         selected_piece,
         pieces_padding,
-        message_width,
-        message_height,
+        header_height = 60,
+        option_width = 100,
+        message_width = 600,
+        message_height = 200,
+        find_options_width = 600,
+        find_options_height = 400,
     ):
         Frame.__init__(self, master, bg=color_palette[0])
         master.rowconfigure(0, weight=1)
@@ -50,7 +52,7 @@ class Main(Frame):
         self.fen_castling = "KQkq"
         self.header_height = header_height
         self.option_width = option_width
-        self._create_widgets(message_width, message_height)
+        self._create_widgets(message_width, message_height, find_options_width, find_options_height)
         self.bind("<Configure>", self._resize)
         self.winfo_toplevel().minsize(600, 600)
         self.display_fen()
@@ -59,12 +61,13 @@ class Main(Frame):
         self.coder_launcher = None
         self.set_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
 
-    def _create_widgets(self, message_width, message_height):
+    def _create_widgets(self, message_width, message_height,find_options_width, find_options_height):
         self.board_box = BoardBox(self)
         self.option_box = Options(self, self.option_width)
         self.header = Header(self, header_height=self.header_height)
         self.pgn_box = PGNOptions(self, self.option_width)
         self.tensor_message = TensorDisplayer(self, message_width, message_height)
+        self.find_option = FindOptions(self,find_options_width, find_options_height)
 
         self.board_box.grid(row=1, column=0, sticky=N + S + E + W)
         self.option_box.grid(row=1, column=1, sticky=N + S + E + W)
@@ -125,13 +128,20 @@ class Main(Frame):
         except Exception:
             return False
 
-    def run_coder(self):
+    def show_find_option(self):
+        if self.coder_set:
+            self.find_option.place(relx=0.5, rely=0.5, anchor=CENTER)
+        else:
+            self.header.coder_label["text"]="Set Coder first"
+
+    def run_coder(self,number,comparison):
         if self.coder_set:
             output = str(
                 self.coder_launcher.predict([self.pages_fens[self.current_pages]])
             )
+            self.find_option.place_forget()
             self.display_tensor(output)
-            self.games = find_similar(self.pages_fens[self.current_pages], 10)
+            self.games = find_similar(self.pages_fens[self.current_pages], number, similarity_functions[comparison])
             self.entering = False
             self.set_fen()
             self.option_box.grid_forget()
@@ -146,8 +156,8 @@ class Main(Frame):
     def exit_coder(self):
         self.pgn_box.grid_forget()
         self.option_box.grid(row=1, column=1, sticky=N + S + E + W)
-        self.set_fen(self.pages_fens[self.current_pages])
         self.entering = True
+        self.set_fen(self.pages_fens[self.current_pages])
 
     def display_tensor(self, message):
         self.tensor_message.set_message(message)
@@ -591,7 +601,7 @@ class Header(Frame):
         self.coder_run = Button(
             self.coder_box,
             text="FIND SIMILAR POSITION",
-            command=self.main.run_coder,
+            command=self.main.show_find_option,
             bg=self.main.color_palette[2],
             fg=self.main.color_palette[0],
         )
@@ -651,6 +661,7 @@ class PGNOptions(Frame):
     def __init__(self, master, option_width):
         self.main = master.main
         Frame.__init__(self, master, bg=self.main.color_palette[5], width=option_width)
+        self.max_length = int(option_width/6.5)
         master.rowconfigure(0, weight=1)
         master.columnconfigure(0, weight=1)
         self._create_widgets(option_width)
@@ -811,7 +822,7 @@ class PGNOptions(Frame):
                     )
                 )
                 text = info[i]
-                if len(text) > 18 and len(text.split()) > 1:
+                if len(text) > self.max_length and len(text.split()) > 1:
                     text = text.split()
                     text = text[0]+"\n"+"".join(text[1:])
                 self.info_labels.append(
@@ -841,6 +852,8 @@ class PGNOptions(Frame):
         else:
             self.position_number["fg"] = self.main.color_palette[2]
             self.position_number["font"] = ("TkDefaultFont", 16)
+            
+    
 
 
 class TensorDisplayer(Frame):
@@ -867,6 +880,102 @@ class TensorDisplayer(Frame):
 
     def set_message(self, message):
         self.tensor_label.config(text=message)
+        
+class FindOptions(Frame):
+    def __init__(self,master,width,height):
+        self.main = master.main
+        Frame.__init__(
+            self,
+            master,
+            bg=self.main.color_palette[8],
+            width=width,
+            height=800,
+        )
+        self._create_widgets(width)
+    
+    def _create_widgets(self,width):
+        
+        self.comparison_info = Label(self,text = "Comparsion Type",bg=self.main.color_palette[4]) 
+        self.comparison_option = ["Closest vectors","L1 Loos","Cosine distance"]
+        self.comparison_selected = StringVar(self)
+        self.comparison_selected.set(self.comparison_option[0])
+        self.comparison = OptionMenu(self, self.comparison_selected, *self.comparison_option)
+        self.number_info = Label(self,text = "amount of games to show",bg=self.main.color_palette[4]) 
+        self.number_box = Frame(self, width=width,height = 30,bg=self.main.color_palette[8])
+        self.button_box = Frame(self)
+        self.submit = Button(self.button_box,text = "Find", command = self.run_coder)
+        self.cancel = Button(self.button_box,text = "Cancel", command = self.place_forget)
+        self.number = 1
+
+        self.comparison_info.grid(row=0, column=0, sticky=E + W, pady=(10,2),padx=10)
+        self.comparison.grid(row=1, column=0, sticky=E + W, pady=2,padx=10)
+        self.number_info.grid(row=2, column=0, sticky=E + W, pady=2,padx=10)
+        self.number_box.grid(row=3, column=0, sticky=E + W, pady=2,padx=10)
+        self.button_box.grid(row=4, column=0, pady=(2,10),padx=10)
+        
+        self.submit.grid(row=1,column=0, sticky=E + W, padx=2, pady=2)
+        self.cancel.grid(row=1,column=1, sticky=E + W, padx=2, pady=2)
+        
+        size = self.get_size(35)
+        image = [
+            ImageTk.PhotoImage(
+                Image.open(
+                    os.path.join(
+                        self.main.home_path,
+                        "img",
+                        str(size) + self.main.arrows_path[i],
+                    )
+                )
+            )
+            for i in range(2, 4)
+        ]
+        
+        self.less = Button(
+            self.number_box,
+            image=image[1],
+            activebackground=self.main.color_palette[2],
+            command = self.sub_number,
+        )
+        self.less.image = image[1]
+
+        self.more = Button(
+            self.number_box,
+            image=image[0],
+            activebackground=self.main.color_palette[2],
+            command = self.add_number,
+        )
+        self.more.image = image[0]
+
+        self.number_label = Label(
+            self.number_box,
+            text="1",
+            font=("TkDefaultFont", 16),
+        )
+
+        self.less.place(relx=0, rely=0, relwidth=1 / 3, relheight=1)
+        self.more.place(relx=2 / 3, rely=0, relwidth=1 / 3, relheight=1)
+        self.number_label.place(relx=1/3 + 0.1, rely=0, relwidth=1 / 3 - 0.2, relheight=1)
+        
+    def get_size(self, num):
+        if num <= self.main.images_sizes[0] + self.main.pieces_padding:
+            return self.main.images_sizes[0]
+        else:
+            for i in self.main.images_sizes[1:]:
+                if num < i + self.main.pieces_padding:
+                    return i
+        return self.main.images_sizes[-1]
+        
+    def add_number(self):
+        self.number+=1
+        self.number_label["text"] = str(self.number)
+    
+    def sub_number(self):
+        if self.number > 1:
+            self.number-=1
+        self.number_label["text"] = str(self.number)
+        
+    def run_coder(self):
+        self.main.run_coder(self.number,self.comparison_selected.get())
 
 
 home_path = os.path.dirname(os.path.abspath(__file__))
@@ -916,8 +1025,6 @@ window.geometry("900x900")
 
 main_box = Main(
     window,
-    60,
-    120,
     color_palette,
     home_path,
     pieces_name,
@@ -926,6 +1033,8 @@ main_box = Main(
     images_sizes,
     selected_piece,
     pieces_padding,
+    60,
+    90,
     600,
     200,
 )
