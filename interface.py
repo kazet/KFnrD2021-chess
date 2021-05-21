@@ -1,7 +1,10 @@
+import os
+if os.environ.get('DISPLAY','') == '':
+    os.environ.__setitem__('DISPLAY', ':0.0')
+    
 from tkinter import *
 from PIL import ImageTk, Image
 from functools import partial
-import os
 import chess
 from tkinter import filedialog
 import torch
