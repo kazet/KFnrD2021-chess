@@ -828,9 +828,9 @@ class PGNOptions(Frame):
                     )
                 )
                 text = info[i]
-                if len(text) > self.max_length and len(text.split()) > 1:
-                    text = text.split()
-                    text = text[0]+"\n"+"".join(text[1:])
+                text = self.text_split(text)
+                if type(text) == list:
+                    text = "\n".join(text)
                 self.info_labels.append(
                     Label(
                         self.info_box,
@@ -844,6 +844,14 @@ class PGNOptions(Frame):
         self.info_box.columnconfigure(0, weight=1)
         for i, label in enumerate(self.info_labels):
             label.grid(row=i, column=0, sticky=E + W, pady=1, padx=2)
+
+    def text_split(self,text,split_char=[' ',',']):
+        for char in split_char:
+            if len(text) > self.max_length and len(text.split(char)) > 1:
+                text = text.split(char)
+                text[1] = self.text_split(text[1])
+                break
+        return text
 
     def set_game_number(self):
         self.game_number["text"] = str(self.main.games.current_game + 1)
