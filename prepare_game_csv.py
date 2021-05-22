@@ -1,293 +1,151 @@
-from io import BytesIO
-from zipfile import ZipFile
-from urllib.request import urlopen
-import csv
+import torch
+import pyodbc
+from scipy.spatial.distance import cdist, cosine
+import numpy as np
+import json
+import chess
+import re
 
-# Preparation of a csv file with champions' games from the site "https://www.pgnmentor.com"
+import settings
+import model
+from inference import Inference
 
-tab = [
-    "Adams",
-    "Akobian",
-    "Akopian",
-    "Alburt",
-    "Alekhine",
-    "Alekseev",
-    "Almasi",
-    "Anand",
-    "Anderssen",
-    "Andersson",
-    "Andreikin",
-    "Aronian",
-    "Ashley",
-    "Averbakh",
-    "Azmaiparashvili",
-    "Bacrot",
-    "Bareev",
-    "BecerraRivero",
-    "Beliavsky",
-    "Benjamin",
-    "Benko",
-    "Berliner",
-    "Bernstein",
-    "Bird",
-    "Bisguier",
-    "Blackburne",
-    "Blatny",
-    "Bogoljubow",
-    "Boleslavsky",
-    "Bologan",
-    "Botvinnik",
-    "Breyer",
-    "Bronstein",
-    "Browne",
-    "Bruzon",
-    "Bu",
-    "Byrne",
-    "Capablanca",
-    "Carlsen",
-    "Caruana",
-    "Chiburdanidze",
-    "Chigorin",
-    "Christiansen",
-    "DeFirmian",
-    "DeLaBourdonnais",
-    "Denker",
-    "Ding",
-    "DominguezPerez",
-    "Dreev",
-    "Dzindzichashvili",
-    "Ehlvest",
-    "Eljanov",
-    "Euwe",
-    "Evans",
-    "Fedorowicz",
-    "Fine",
-    "Finegold",
-    "Fischer",
-    "Fishbein",
-    "Flohr",
-    "Gaprindashvili",
-    "Gashimov",
-    "Gelfand",
-    "Geller",
-    "Georgiev",
-    "Giri",
-    "Gligoric",
-    "Goldin",
-    "GrandaZuniga",
-    "Grischuk",
-    "Gulko",
-    "Gunsberg",
-    "GurevichD",
-    "GurevichM",
-    "Harikrishna",
-    "Hort",
-    "Horwitz",
-    "Hou",
-    "Huebner",
-    "Ibragimov",
-    "IllescasCordoba",
-    "Inarkiev",
-    "Ivanchuk",
-    "IvanovA",
-    "IvanovI",
-    "Ivkov",
-    "Jakovenko",
-    "Janowski",
-    "Jobava",
-    "Jussupow",
-    "Kaidanov",
-    "Kamsky",
-    "Karjakin",
-    "Karpov",
-    "Kasimdzhanov",
-    "Kasparov",
-    "Kavalek",
-    "Keres",
-    "Khalifman",
-    "Kholmov",
-    "Koneru",
-    "Korchnoi",
-    "Korobov",
-    "Kosteniuk",
-    "Kotov",
-    "Kramnik",
-    "Krasenkow",
-    "Krush",
-    "Kudrin",
-    "Lahno",
-    "Larsen",
-    "Lasker",
-    "Lautier",
-    "Le",
-    "Leko",
-    "Levenfish",
-    "Li",
-    "Lilienthal",
-    "Ljubojevic",
-    "Lputian",
-    "MacKenzie",
-    "Malakhov",
-    "Mamedyarov",
-    "Maroczy",
-    "Marshall",
-    "McDonnell",
-    "McShane",
-    "Mecking",
-    "Mikenas",
-    "Miles",
-    "Milov",
-    "Morozevich",
-    "Morphy",
-    "Motylev",
-    "Movsesian",
-    "Muzychuk",
-    "Najdorf",
-    "Najer",
-    "Nakamura",
-    "Navara",
-    "Negi",
-    "Nepomniachtchi",
-    "Ni",
-    "Nielsen",
-    "Nikolic",
-    "Nimzowitsch",
-    "Nisipeanu",
-    "Novikov",
-    "Nunn",
-    "Olafsson",
-    "Oll",
-    "Onischuk",
-    "Pachman",
-    "Paehtz",
-    "Panno",
-    "Paulsen",
-    "Petrosian",
-    "Philidor",
-    "Pillsbury",
-    "Pilnik",
-    "PolgarJ",
-    "PolgarS",
-    "PolgarZ",
-    "Polugaevsky",
-    "Ponomariov",
-    "Portisch",
-    "Psakhis",
-    "Quinteros",
-    "Radjabov",
-    "Rapport",
-    "Reshevsky",
-    "Reti",
-    "Ribli",
-    "Rohde",
-    "Rubinstein",
-    "Rublevsky",
-    "Saemisch",
-    "Sakaev",
-    "Salov",
-    "Sasikiran",
-    "Schlechter",
-    "Seirawan",
-    "Serper",
-    "Shabalov",
-    "Shamkovich",
-    "Shirov",
-    "Short",
-    "Shulman",
-    "Smirin",
-    "Smyslov",
-    "So",
-    "Sokolov",
-    "Soltis",
-    "Spassky",
-    "Speelman",
-    "Spielmann",
-    "Stahlberg",
-    "Staunton",
-    "Stefanova",
-    "Stein",
-    "Steinitz",
-    "Suetin",
-    "SultanKhan",
-    "Sutovsky",
-    "Svidler",
-    "Szabo",
-    "Taimanov",
-    "Tal",
-    "Tarrasch",
-    "Tartakower",
-    "Teichmann",
-    "Timman",
-    "Tiviakov",
-    "Tkachiev",
-    "Tomashevsky",
-    "Topalov",
-    "TorreRepetto",
-    "Uhlmann",
-    "Unzicker",
-    "Ushenina",
-    "VachierLagrave",
-    "Vaganian",
-    "VallejoPons",
-    "VanWely",
-    "Vitiugov",
-    "Volokitin",
-    "Waitzkin",
-    "Wang",
-    "WangH",
-    "Wei",
-    "Winawer",
-    "Wojtaszek",
-    "Wojtkiewicz",
-    "Wolff",
-    "Xie",
-    "Xu",
-    "Ye",
-    "Yermolinsky",
-    "Yu",
-    "Yudasin",
-    "Zhu",
-    "Zukertort",
-    "Zvjaginsev",
-]
-url = "https://www.pgnmentor.com/players/"
-limit = 0
-respect_limit = True
-csv_name = "games_lite.csv"
+def l1_loss(matrix,target):
+    return [np.sum(np.abs(np.array(m)-np.array(target))) for m in matrix]
+    
+def nearest(matrix,target):
+    return cdist(matrix, np.atleast_2d([target]))
+    
+def cosine_dist(matrix,target):
+    return [cosine(m, target) for m in matrix]
+    
+similarity_functions = {"Closest vectors":nearest,"L1 Loos":l1_loss,"Cosine distance":cosine_dist}
+
+def get_move(line):
+    line = str(line)
+    game = []  # list of moves in pgn notation
+    for move in re.findall(
+        r"[^{\[.}\]]+ ", line.replace("?", "").replace("!", "")
+    ):  # Extract all moves without comments
+        game.extend(
+            move.strip().split(" ")
+        )  # Sometimes one string contains two moves with space between
+    return game
 
 
-with open(csv_name, "w", newline="") as file:
-    writer = csv.writer(file, delimiter=";")
-    writer.writerow(["Autor", "Number", "Description", "Game"])
+def find_lowest(array, num, key=lambda i: i[1]):
+    """
+    Finds x smallest values ​​in a table.
+    :param array: list of records
+    :param num: number of records to be found
+    :param key: sort function key
+    :return: list of index and records
+    """
+    result = []
+    for i, a in enumerate(array):
+        if len(result) < num:
+            result.append((i, a))
+            result.sort(key=key)
+        else:
+            if result[-1][1] > a:
+                result[-1] = (i, a)
+                result.sort(key=key)
+    return result
 
-    for player in tab:
-        resp = urlopen(url + player + ".zip")
-        zipfile = ZipFile(BytesIO(resp.read()))
-        game_number = 0
-        is_description = True
-        description = ""
-        game = ""
-        for line in zipfile.open(zipfile.namelist()[0]).readlines():
-            if len(line) < 5:
-                is_description = is_description == False
-                if is_description:
-                    writer.writerow(
-                        [
-                            player,
-                            game_number,
-                            description.replace("\r\n", "|").replace('"', "'"),
-                            game.replace("\r\n", " "),
-                        ]
-                    )
-                    game_number += 1
-                    description = ""
-                    game = ""
-                    if respect_limit and game_number > limit:
-                        break
 
-            elif is_description:
-                description = description + line.decode("utf-8", "backslashreplace")
-            else:
-                game = game + line.decode("utf-8")
-        print(player)
-print("DONE")
+def find_game(idx, cursor):
+    result = []
+    for i in idx:
+        data = cursor.execute(
+            "SELECT Embeding.Author, Embeding.Number, Embeding.Move FROM Embeding WHERE (((Embeding.Identyfikator)="
+            + str(i[0])
+            + "));"
+        ).fetchall()[0]
+        move = data[2]
+        data = cursor.execute(
+            "SELECT * FROM Games_lite WHERE (((Games_lite.Author)='"
+            + data[0]
+            + "') AND ((Games_lite.Number)="
+            + str(data[1])
+            + "));"
+        ).fetchall()
+        result.append(list(data[0]) + [move])
+    return result
+
+
+def find_similar(fen, num=1,similarity_function = nearest):
+    """
+    Finds x smallest values ​​in a table.
+    :param fen: String with chess position in Fen notation
+    :param num: Number of games to be found
+    :param similarity_function: Function that measures the similarity of vectors
+    :return: list of games with similar positions
+    """
+    coder = model.Coder(settings.BOARD_SHAPE, settings.LATENT_SIZE).to(settings.DEVICE)
+    # coder.load_state_dict(torch.load(setting.CODER_PATH))
+    coder.eval()
+    inf = Inference(settings.DEVICE, coder)
+    target = inf.predict([fen]).tolist()[0]
+    conn = pyodbc.connect(settings.DATABASE)
+    cursor = conn.cursor()
+    cursor.execute("select Embeding FROM Embeding")
+    matrix = cursor.fetchall()
+    matrix = [json.loads(x[0])[0] for x in matrix]
+    scores = similarity_function(matrix,target)
+    idx = find_lowest(scores, num)
+    return Games(find_game(idx, cursor))
+
+
+class Games:
+    def __init__(self, data):
+        """
+        :param data: list from find_similar function
+        """
+        self.board = chess.Board()
+        self.moves = []
+        self.current_move = 0
+        self.current_game = 0
+        self.main_move = []
+        self.info = []
+        for game in data:
+            info = {}
+            for inf in game[2].split("|")[:-1]:
+                info[inf.split("'")[0][1:]] = inf.split("'")[1]
+            self.info.append(info)
+            self.moves.append(get_move(game[3]))
+            self.main_move.append(game[4])
+        self.set_board()
+
+    def on_main_move(self):
+        return self.current_move == self.main_move[self.current_game]
+
+    def set_board(self):
+        self.board.reset()
+        for i in range(self.main_move[self.current_game]):
+            self.board.push_san(self.moves[self.current_game][i])
+        self.current_move = self.main_move[self.current_game]
+
+    def next_game(self):
+        self.current_game += 1
+        if self.current_game >= len(self.moves):
+            self.current_game = 0
+        self.set_board()
+
+    def last_game(self):
+        self.current_game -= 1
+        if self.current_game < 0:
+            self.current_game = len(self.moves) - 1
+        self.set_board()
+
+    def next_move(self):
+        if len(self.moves[self.current_game]) > self.current_move:
+            self.board.push_san(self.moves[self.current_game][self.current_move])
+            self.current_move += 1
+
+    def last_move(self):
+        if self.current_move > 0:
+            self.board.pop()
+            self.current_move -= 1
+
+    def get_info(self):
+        return self.info[self.current_game]

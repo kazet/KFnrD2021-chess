@@ -1,5 +1,5 @@
 import torch
-import pyodbc
+import sqlite3
 from scipy.spatial.distance import cdist, cosine
 import numpy as np
 import json
@@ -11,19 +11,24 @@ import model
 from inference import Inference
 
 
-def key(i):
-    return i[1]
+def l1_loss(matrix, target):
+    return [np.sum(np.abs(np.array(m) - np.array(target))) for m in matrix]
 
-def l1_loss(matrix,target):
-    return [np.sum(np.abs(np.array(m)-np.array(target))) for m in matrix]
-    
-def nearest(matrix,target):
+
+def nearest(matrix, target):
     return cdist(matrix, np.atleast_2d([target]))
-    
-def cosine_dist(matrix,target):
+
+
+def cosine_dist(matrix, target):
     return [cosine(m, target) for m in matrix]
-    
-similarity_functions = {"Closest vectors":nearest,"L1 Loos":l1_loss,"Cosine distance":cosine_dist}
+
+
+similarity_functions = {
+    "Closest vectors": nearest,
+    "L1 Loos": l1_loss,
+    "Cosine distance": cosine_dist,
+}
+
 
 def get_move(line):
     line = str(line)
@@ -37,7 +42,7 @@ def get_move(line):
     return game
 
 
-def find_lowest(array, num, key=key):
+def find_lowest(array, num, key=lambda i: i[1]):
     """
     Finds x smallest values ​​in a table.
     :param array: list of records
@@ -61,15 +66,15 @@ def find_game(idx, cursor):
     result = []
     for i in idx:
         data = cursor.execute(
-            "SELECT Embeding.Autor, Embeding.Number, Embeding.Move FROM Embeding WHERE (((Embeding.Identyfikator)="
+            "SELECT positions_lite.Author, positions_lite.Number, positions_lite.Move FROM positions_lite WHERE (((positions_lite.ID)="
             + str(i[0])
             + "));"
         ).fetchall()[0]
         move = data[2]
         data = cursor.execute(
-            "SELECT * FROM Games_lite WHERE (((Games_lite.Autor)='"
+            "SELECT * FROM games_lite WHERE (((games_lite.Author)='"
             + data[0]
-            + "') AND ((Games_lite.Number)="
+            + "') AND ((games_lite.Number)="
             + str(data[1])
             + "));"
         ).fetchall()
@@ -77,7 +82,7 @@ def find_game(idx, cursor):
     return result
 
 
-def find_similar(fen, num=1,similarity_function = nearest):
+def find_similar(fen, num=1, similarity_function=nearest):
     """
     Finds x smallest values ​​in a table.
     :param fen: String with chess position in Fen notation
@@ -90,17 +95,17 @@ def find_similar(fen, num=1,similarity_function = nearest):
     coder.eval()
     inf = Inference(settings.DEVICE, coder)
     target = inf.predict([fen]).tolist()[0]
-    conn = pyodbc.connect(settings.DATABASE)
+    conn = sqlite3.connect(settings.DATABASE)
     cursor = conn.cursor()
-    cursor.execute("select Embeding FROM Embeding")
+    cursor.execute("select Embeding FROM positions_lite")
     matrix = cursor.fetchall()
     matrix = [json.loads(x[0])[0] for x in matrix]
-    scores = similarity_function(matrix,target)
+    scores = similarity_function(matrix, target)
     idx = find_lowest(scores, num)
-    return games(find_game(idx, cursor))
+    return Games(find_game(idx, cursor))
 
 
-class games:
+class Games:
     def __init__(self, data):
         """
         :param data: list from find_similar function

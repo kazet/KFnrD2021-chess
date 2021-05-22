@@ -30,11 +30,12 @@ coder = model.Coder(settings.BOARD_SHAPE, settings.LATENT_SIZE).to(settings.DEVI
 #coder.load_state_dict(torch.load(setting.CODER_PATH))
 coder.eval()
 inf = Inference(settings.DEVICE, coder)
-csv_name = "embeding_lite2.csv"
+csv_name = "positions_lite.csv"
+ID = 0
 
 with open(csv_name, "w", newline="") as file:
     writer = csv.writer(file, delimiter=";")
-    writer.writerow(["Autor", "Number", "Move", "Embeding"])
+    writer.writerow(["ID","Author", "Number", "Move", "Embeding"])
     conn = pyodbc.connect(settings.DATABASE)
     cursor = conn.cursor()
     cursor.execute("select * FROM Games_lite")
@@ -43,4 +44,5 @@ with open(csv_name, "w", newline="") as file:
         for idx, move in enumerate(get_move(row[3])):
             board.push_san(move)
             tensor = inf.predict([board.fen()])
-            writer.writerow([row[0], row[1], idx, str(tensor.tolist())])
+            writer.writerow([ID, row[0], row[1], idx, str(tensor.tolist())])
+            ID += 1
