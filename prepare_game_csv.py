@@ -251,7 +251,7 @@ players = [
     "Zvjaginsev",
 ]
 url = "https://www.pgnmentor.com/players/"
-limit = 0
+limit = 2
 respect_limit = True
 csv_name = "games_lite.csv"
 

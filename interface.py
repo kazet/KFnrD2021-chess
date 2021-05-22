@@ -11,7 +11,7 @@ import torch
 
 from inference import Inference
 import settings
-from model import Coder
+from model import Autoencoder
 from find_similar import find_similar,similarity_functions
 
 
@@ -63,6 +63,7 @@ class Main(Frame):
         self.games = None
         self.coder_launcher = None
         self.set_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+        self.set_coder(settings.CODER_PATH)
 
     def _create_widgets(self, message_width, message_height,find_options_width, find_options_height):
         self.board_box = BoardBox(self)
@@ -117,18 +118,20 @@ class Main(Frame):
 
     def set_coder(self, filename):
         try:
-            self.coder = Coder(settings.BOARD_SHAPE, settings.LATENT_SIZE).to(
+            self.coder = Autoencoder(settings.BOARD_SHAPE, settings.LATENT_SIZE).to(
                 settings.DEVICE
             )
-            self.coder.load_state_dict(torch.load(filename))
+            self.coder.load_state_dict(torch.load(filename, map_location=settings.DEVICE))
+            self.coder = self.coder.coder
             self.coder.eval()
             self.coder_launcher = Inference(
                 settings.DEVICE,
                 self.coder,
             )
             self.coder_set = True
+            self.header.coder_label["text"]="Coder Set"
             return True
-        except Exception:
+        except:
             return False
 
     def show_find_option(self):
@@ -753,7 +756,7 @@ class PGNOptions(Frame):
             text="1",
             bg=self.main.color_palette[8],
             fg=self.main.color_palette[2],
-            font=("TkDefaultFont", 16),
+            font=("TkDefaultFont", 10),
         )
 
         self.last_game.place(relx=0, rely=0, relwidth=1 / 3, relheight=1)
@@ -791,7 +794,7 @@ class PGNOptions(Frame):
             text="1",
             bg=self.main.color_palette[8],
             fg=self.main.color_palette[2],
-            font=("TkDefaultFont", 16),
+            font=("TkDefaultFont", 10),
         )
 
         self.last_position.place(relx=0, rely=0, relwidth=1 / 3, relheight=1)
@@ -851,10 +854,10 @@ class PGNOptions(Frame):
         self.position_number["text"] = str(self.main.games.current_move)
         if self.main.games.on_main_move():
             self.position_number["fg"] = self.main.color_palette[4]
-            self.position_number["font"] = ("TkDefaultFont", 20)
+            self.position_number["font"] = ("TkDefaultFont", 12)
         else:
             self.position_number["fg"] = self.main.color_palette[2]
-            self.position_number["font"] = ("TkDefaultFont", 16)
+            self.position_number["font"] = ("TkDefaultFont", 10)
             
     
 
@@ -952,7 +955,7 @@ class FindOptions(Frame):
         self.number_label = Label(
             self.number_box,
             text="1",
-            font=("TkDefaultFont", 16),
+            font=("TkDefaultFont", 10),
         )
 
         self.less.place(relx=0, rely=0, relwidth=1 / 3, relheight=1)

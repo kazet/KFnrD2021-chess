@@ -3,6 +3,7 @@ import pyodbc
 import chess
 import csv
 import re
+import os
 
 import settings
 import model
@@ -26,8 +27,9 @@ def get_move(line):
     return game
 
 
-coder = model.Coder(settings.BOARD_SHAPE, settings.LATENT_SIZE).to(settings.DEVICE)
-#coder.load_state_dict(torch.load(setting.CODER_PATH))
+coder = model.Autoencoder(settings.BOARD_SHAPE, settings.LATENT_SIZE).to(settings.DEVICE)
+coder.load_state_dict(torch.load(settings.CODER_PATH, map_location=settings.DEVICE))
+coder = coder.coder
 coder.eval()
 inf = Inference(settings.DEVICE, coder)
 csv_name = "positions_lite.csv"
@@ -36,13 +38,15 @@ ID = 0
 with open(csv_name, "w", newline="") as file:
     writer = csv.writer(file, delimiter=";")
     writer.writerow(["ID","Author", "Number", "Move", "Embeding"])
-    conn = pyodbc.connect(settings.DATABASE)
-    cursor = conn.cursor()
-    cursor.execute("select * FROM Games_lite")
-    for row in cursor.fetchall():
-        board = chess.Board()
-        for idx, move in enumerate(get_move(row[3])):
-            board.push_san(move)
-            tensor = inf.predict([board.fen()])
-            writer.writerow([ID, row[0], row[1], idx, str(tensor.tolist())])
-            ID += 1
+    games_csv = open(os.path.join(os.getcwd(),'games_lite.csv'))
+    for row in games_csv:
+        try :
+            data = row[:-2].split(";")
+            board = chess.Board()
+            for idx, move in enumerate(get_move(data[3])):
+                board.push_san(move)
+                tensor = inf.predict([board.fen()])
+                writer.writerow([ID, data[0], int(data[1]), idx, str(tensor.tolist())])
+                ID += 1
+        except:
+            print("Error on "+data[0],data[1])
