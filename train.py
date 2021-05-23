@@ -46,7 +46,7 @@ if __name__ == '__main__':
         writer.add_scalar('noise_gate', autoencoder.coder.nn[-3].noise.data.mean(), idx)
 
         # Saving models and logging to console
-        print(idx, loss_reconstruction_v)
+        print(idx, loss_reconstruction_v.item())
         if not idx % settings.SAVE_INTERVAL:
             torch.save(autoencoder.state_dict(),
                        f'autoencoder/checkpoints/model-{idx}-{np.round(loss_reconstruction_v.item(), 6)}.pth')
