@@ -8,11 +8,12 @@ from functools import partial
 import chess
 from tkinter import filedialog
 import torch
+from urllib.request import urlopen
 
 from inference import Inference
 import settings
 from model import Autoencoder
-from find_similar import find_similar,similarity_functions
+from find_similar import find_similar,similarity_functions,pgn_games
 
 
 class Main(Frame):
@@ -50,6 +51,7 @@ class Main(Frame):
         self.pieces_padding = pieces_padding
         self.color_palette = color_palette
         self.entering = True
+        self.follow_fen = True
         self.fen_placement = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
         self.fen_player = "w"
         self.fen_castling = "KQkq"
@@ -61,6 +63,8 @@ class Main(Frame):
         self.display_fen()
         self.coder = None
         self.games = None
+        self.store_games = None
+        self.lichess_set = False
         self.coder_launcher = None
         self.set_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
         self.set_coder(settings.CODER_PATH)
@@ -72,6 +76,7 @@ class Main(Frame):
         self.pgn_box = PGNOptions(self, self.option_width)
         self.tensor_message = TensorDisplayer(self, message_width, message_height)
         self.find_option = FindOptions(self,find_options_width, find_options_height)
+        self.lichess_set_option = LichessSetOptions(self,find_options_width,find_options_height)
 
         self.board_box.grid(row=1, column=0, sticky=N + S + E + W)
         self.option_box.grid(row=1, column=1, sticky=N + S + E + W)
@@ -80,6 +85,26 @@ class Main(Frame):
         self.rowconfigure(1, weight=1)
         self.columnconfigure(0, weight=1)
 
+    def show_lichess_options(self):
+        self.lichess_set_option.place(relx=0.5, rely=0.5, anchor=CENTER)
+        self.find_option.place_forget()
+    
+    def set_lichess(self,name,n_games):
+        try:
+            with urlopen("https://lichess.org/api/games/user/{}?max={}&perfType=ultraBullet,bullet,blitz,rapid,classical,correspondence".format(name, n_games)) as pgn:
+                self.games = pgn_games(pgn,n_games)
+                self.lichess_set_option.place_forget()
+                self.header.coder_label["text"]="Account set"
+                self.follow_fen = True
+                self.entering = False
+                self.lichess_set = True
+                self.set_fen()
+                self.option_box.grid_forget()
+                self.pgn_box.grid(row=1, column=1, sticky=N + S + E + W)
+                self.pgn_box.set_game_number()
+        except:
+            self.header.display_fen("Lichess Account couldn't be set", "", "")
+    
     def _resize(self, event):
         """Modify padding when window is resized."""
         w, h = event.width, event.height
@@ -88,7 +113,7 @@ class Main(Frame):
 
     def display_fen(self):
         self.header.display_fen(self.fen_placement, self.fen_player, self.fen_castling)
-        if self.entering:
+        if self.follow_fen:
             self.pages_fens[self.current_pages] = " ".join(
                 [self.fen_placement, self.fen_player, self.fen_castling, "- 0 0"]
             )
@@ -101,6 +126,9 @@ class Main(Frame):
             self.fen_player = split_fen[1]
             self.fen_castling = split_fen[2]
             self.board_box.board.set_board(self.fen_placement)
+            if self.follow_fen:
+                self.pages_fens[self.current_pages] = fen
+                self.display_fen()
             return
         try:
             a = chess.Board(fen)
@@ -137,11 +165,14 @@ class Main(Frame):
     def show_find_option(self):
         if self.coder_set:
             self.find_option.place(relx=0.5, rely=0.5, anchor=CENTER)
+            self.lichess_set_option.place_forget()
         else:
             self.header.coder_label["text"]="Set Coder first"
 
     def run_coder(self,number,comparison):
         if self.coder_set:
+            if self.lichess_set:
+                self.store_games = self.games
             output = str(
                 self.coder_launcher.predict([self.pages_fens[self.current_pages]])
             )
@@ -149,20 +180,28 @@ class Main(Frame):
             self.display_tensor(output)
             self.games = find_similar(self.pages_fens[self.current_pages], number, similarity_functions[comparison])
             self.entering = False
+            self.follow_fen = False
             self.set_fen()
             self.option_box.grid_forget()
             self.pgn_box.grid(row=1, column=1, sticky=N + S + E + W)
-            self.pgn_box.set_info(self.games.get_info())
-            self.pgn_box.set_position_number()
+            self.pgn_box.set_game_number()
 
-    def games_command(self):
-        self.games.last_move()
-        self.set_fen()
 
-    def exit_coder(self):
+    def exit_pgn_options(self):
+        if self.lichess_set:
+            if self.follow_fen :
+                self.lichess_set = False
+            else:
+                self.games = self.store_games
+                self.follow_fen = True
+                self.set_fen()
+                self.option_box.grid_forget()
+                self.pgn_box.set_game_number()
+                return
         self.pgn_box.grid_forget()
         self.option_box.grid(row=1, column=1, sticky=N + S + E + W)
         self.entering = True
+        self.follow_fen = True
         self.set_fen(self.pages_fens[self.current_pages])
 
     def display_tensor(self, message):
@@ -171,6 +210,7 @@ class Main(Frame):
 
     def stop_display_tensor(self):
         self.tensor_message.place_forget()
+    
 
 
 class BoardBox(Frame):
@@ -587,63 +627,71 @@ class Header(Frame):
         self.bind("<Configure>", self._resize)
 
     def _create_widgets(self, header_height):
-        self.fen_box = Frame(self, bg=self.main.color_palette[9])
+        self.bottom_box = Frame(self, bg=self.main.color_palette[9])
         self.fen_entry = Entry(
-            self.fen_box,
+            self.bottom_box,
             justify=CENTER,
             bg=self.main.color_palette[2],
             fg=self.main.color_palette[0],
             font=("Courier", 12),
         )
+        self.coder_label = Label(
+            self.bottom_box,
+            text="Coder not set",
+            bg=self.main.color_palette[2],
+            fg=self.main.color_palette[0],
+        )
+        self.fen_entry.bind("<Return>")
+        self.top_box = Frame(self, bg=self.main.color_palette[9])
+        self.set_lichess = Button(
+            self.top_box,
+            text="LICHESS ACCOUNT",
+            command=self.main.show_lichess_options,
+            bg=self.main.color_palette[2],
+            fg=self.main.color_palette[0],
+        )
         self.set_fen = Button(
-            self.fen_box,
+            self.top_box,
             text="SET FEN",
             command=self.main_set_fen,
             bg=self.main.color_palette[2],
             fg=self.main.color_palette[0],
         )
-        self.fen_entry.bind("<Return>")
-        self.coder_box = Frame(self, bg=self.main.color_palette[9])
         self.coder_run = Button(
-            self.coder_box,
+            self.top_box,
             text="FIND SIMILAR POSITION",
             command=self.main.show_find_option,
             bg=self.main.color_palette[2],
             fg=self.main.color_palette[0],
         )
         self.coder_path = Button(
-            self.coder_box,
+            self.top_box,
             text="SET CODER",
             command=self.get_coder,
             bg=self.main.color_palette[2],
             fg=self.main.color_palette[0],
         )
-        self.coder_label = Label(
-            self.coder_box,
-            text="Coder not set",
-            bg=self.main.color_palette[2],
-            fg=self.main.color_palette[0],
-        )
 
-        self.fen_box.grid(
-            row=0, column=1, sticky=E + W, padx=2, pady=2, ipadx=2, ipady=2
+        self.bottom_box.grid(
+            row=1, column=0, sticky=E + W, padx=2, pady=2, ipadx=2, ipady=2
         )
-        self.coder_box.grid(
+        self.top_box.grid(
             row=0, column=0, sticky=E + W, padx=2, pady=2, ipadx=2, ipady=2
         )
 
-        self.set_fen.grid(row=0, column=0, sticky=E + W, pady=(4, 0), padx=(4, 0))
+        self.coder_label.grid(row=0, column=0, sticky=E + W, pady=(4, 0), padx=(4, 0))
         self.fen_entry.grid(row=0, column=1, sticky=N + S + E + W, pady=(3, 0), padx=4)
 
+        self.set_fen.grid(row=0, column=2, sticky=E + W, pady=(4, 0), padx=(4, 0))
         self.coder_path.grid(row=0, column=0, sticky=E + W, pady=(4, 0), padx=4)
-        self.coder_label.grid(row=0, column=1, sticky=E + W, pady=(4, 0), padx=(0, 4))
-        self.coder_run.grid(row=0, column=2, sticky=E + W, pady=(4, 0))
+        self.coder_run.grid(row=0, column=1, sticky=E + W, pady=(4, 0))
+        self.set_lichess.grid(row=0, column=3, sticky=E + W, pady=(4, 0), padx=(4, 0))
 
     def _resize(self, event):
         """Modify padding when window is resized."""
         w, h = event.width, event.height
-        self.columnconfigure(1, weight=int(w))
-        self.fen_box.columnconfigure(1, weight=int(w))
+        self.columnconfigure(0, weight=int(w))
+        self.bottom_box.columnconfigure(1, weight=int(w))
 
     def display_fen(self, fen_placement, fen_player, fen_castling):
         self.fen_entry.delete(0, END)
@@ -680,7 +728,7 @@ class PGNOptions(Frame):
             text="BACK",
             bg=self.main.color_palette[3],
             activebackground=self.main.color_palette[4],
-            command=self.main.exit_coder,
+            command=self.main.exit_pgn_options,
         )
         self.info_box = Frame(
             self,
@@ -817,13 +865,13 @@ class PGNOptions(Frame):
         del self.info_labels
         self.info_labels = []
         for i in info:
-            if info[i] != "":
+            if info[i] != "" and i[:-1].upper() != "SITE":
                 self.info_labels.append(
                     Label(
                         self.info_box,
                         bg=self.main.color_palette[4],
                         fg=self.main.color_palette[0],
-                        text=i.upper(),
+                        text=i[:-1].upper(),
                         anchor=CENTER,
                     )
                 )
@@ -848,9 +896,11 @@ class PGNOptions(Frame):
     def text_split(self,text,split_char=[' ',',']):
         for char in split_char:
             if len(text) > self.max_length and len(text.split(char)) > 1:
-                text = text.split(char)
-                text[1] = self.text_split(text[1])
+                text = [text.split(char)[0] ,char.join(text.split(char)[1:])] 
+                text = [text[0]] + self.text_split(text[1])
                 break
+        if type(text) == str:
+            return [text]
         return text
 
     def set_game_number(self):
@@ -866,10 +916,8 @@ class PGNOptions(Frame):
         else:
             self.position_number["fg"] = self.main.color_palette[2]
             self.position_number["font"] = ("TkDefaultFont", 10)
-            
+ 
     
-
-
 class TensorDisplayer(Frame):
     def __init__(self, master, message_width, message_height):
         self.main = master.main
@@ -894,7 +942,8 @@ class TensorDisplayer(Frame):
 
     def set_message(self, message):
         self.tensor_label.config(text=message)
-        
+
+
 class FindOptions(Frame):
     def __init__(self,master,width,height):
         self.main = master.main
@@ -991,6 +1040,106 @@ class FindOptions(Frame):
     def run_coder(self):
         self.main.run_coder(self.number,self.comparison_selected.get())
 
+
+class LichessSetOptions(Frame):
+    def __init__(self,master,width,height):
+        self.main = master.main
+        Frame.__init__(
+            self,
+            master,
+            bg=self.main.color_palette[8],
+            width=width,
+            height=800,
+        )
+        self._create_widgets(width)
+    
+    def _create_widgets(self,width):
+        
+        self.name_info = Label(self,text = "Account Name",bg=self.main.color_palette[4]) 
+        self.name = Entry(
+            self,
+            justify=CENTER,
+            bg=self.main.color_palette[2],
+            fg=self.main.color_palette[0],
+            font=("Courier", 12),
+        )
+        self.number_info = Label(self,text = "amount of games to show",bg=self.main.color_palette[4]) 
+        self.number_box = Frame(self, width=width,height = 30,bg=self.main.color_palette[8])
+        self.button_box = Frame(self)
+        self.submit = Button(self.button_box,text = "Find", command = self.run_coder)
+        self.cancel = Button(self.button_box,text = "Cancel", command = self.place_forget)
+        self.number = 1
+
+        self.name_info.grid(row=0, column=0, sticky=E + W, pady=(10,2),padx=10)
+        self.name.grid(row=1, column=0, sticky=E + W, pady=2,padx=10)
+        self.number_info.grid(row=2, column=0, sticky=E + W, pady=2,padx=10)
+        self.number_box.grid(row=3, column=0, sticky=E + W, pady=2,padx=10)
+        self.button_box.grid(row=4, column=0, pady=(2,10),padx=10)
+        
+        self.submit.grid(row=1,column=0, sticky=E + W, padx=2, pady=2)
+        self.cancel.grid(row=1,column=1, sticky=E + W, padx=2, pady=2)
+        
+        size = self.get_size(35)
+        image = [
+            ImageTk.PhotoImage(
+                Image.open(
+                    os.path.join(
+                        self.main.home_path,
+                        "img",
+                        str(size) + self.main.arrows_path[i],
+                    )
+                )
+            )
+            for i in range(2, 4)
+        ]
+        
+        self.less = Button(
+            self.number_box,
+            image=image[1],
+            activebackground=self.main.color_palette[2],
+            command = self.sub_number,
+        )
+        self.less.image = image[1]
+
+        self.more = Button(
+            self.number_box,
+            image=image[0],
+            activebackground=self.main.color_palette[2],
+            command = self.add_number,
+        )
+        self.more.image = image[0]
+
+        self.number_label = Label(
+            self.number_box,
+            text="1",
+            font=("TkDefaultFont", 10),
+        )
+
+        self.less.place(relx=0, rely=0, relwidth=1 / 3, relheight=1)
+        self.more.place(relx=2 / 3, rely=0, relwidth=1 / 3, relheight=1)
+        self.number_label.place(relx=1/3 + 0.1, rely=0, relwidth=1 / 3 - 0.2, relheight=1)
+        
+    def get_size(self, num):
+        if num <= self.main.images_sizes[0] + self.main.pieces_padding:
+            return self.main.images_sizes[0]
+        else:
+            for i in self.main.images_sizes[1:]:
+                if num < i + self.main.pieces_padding:
+                    return i
+        return self.main.images_sizes[-1]
+        
+    def add_number(self):
+        self.number+=1
+        self.number_label["text"] = str(self.number)
+    
+    def sub_number(self):
+        if self.number > 1:
+            self.number-=1
+        self.number_label["text"] = str(self.number)
+        
+    def run_coder(self):
+        self.main.set_lichess(self.name.get(),self.number)
+        
 
 home_path = os.path.dirname(os.path.abspath(__file__))
 pieces_name = "px-Chess_"

@@ -119,7 +119,10 @@ class Games:
         for game in data:
             info = {}
             for inf in game[2].split("|")[:-1]:
-                info[inf.split("'")[0][1:]] = inf.split("'")[1]
+                try:
+                    info[inf.split("'")[0][1:]] = inf.split("'")[1]
+                except:
+                    info[inf.split('"')[0][1:]] = inf.split('"')[1]
             self.info.append(info)
             self.moves.append(get_move(game[3]))
             self.main_move.append(game[4])
@@ -158,3 +161,22 @@ class Games:
 
     def get_info(self):
         return self.info[self.current_game]
+
+def pgn_games(pgn,n_game, player = "", start_pos = 0):
+    result = []
+    info = ""
+    ID = 0
+    for line in pgn :
+        realLine = line.decode("utf-8", "backslashreplace")
+        if(realLine[0] == "["):
+            info += realLine[:-1]+"|"
+        elif realLine[0] == "1":
+            result.append([player,ID,info,realLine[:-1],start_pos])
+            info = ""
+            ID += 1
+            if ID >= n_game:
+                break
+    return Games(result)
+
+#with urlopen("https://lichess.org/api/games/user/sebb306?max=10") as pgn:
+#    print(PgnGames(pgn,10))
