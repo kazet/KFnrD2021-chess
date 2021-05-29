@@ -71,7 +71,7 @@ class Coder(nn.Module):
             nn.Flatten(),
             NoisyLinear(in_features=128, out_features=max(128, latent_size * 2)), nn.GELU(),
             NoisyLinear(in_features=max(128, latent_size * 2), out_features=latent_size),
-            NoiseGate(latent_size), nn.BatchNorm1d(latent_size), nn.Dropout(.017))
+            NoiseGate(latent_size), nn.InstanceNorm1d(latent_size), nn.Dropout(.017))
 
     def forward(self, x):
         return self.nn(x)
