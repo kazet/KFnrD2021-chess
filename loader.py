@@ -299,7 +299,7 @@ class StandardConvSuite(object):
         self.enpassat = enpassat
 
     @staticmethod
-    def preprocess_batch(batch):
+    def preprocess_batch(self,batch):
         """
         Makes batch suitable for convolutional
         :param batch:
@@ -316,7 +316,7 @@ class StandardConvSuite(object):
         if self.enpassat:
             boards_v = torch.cat([boards_v, batch['en_passants']], dim=1)
         if self.castling:
-        castlings = torch.zeros((boards_v.size()[0], 4, 8, 8)).to(boards_v.device)
+            castlings = torch.zeros((boards_v.size()[0], 4, 8, 8)).to(boards_v.device)
             for idx, (castling, player) in enumerate(zip(batch['castlings'], batch['players'])):
                 if player == 1:
                     for c_idx, component in enumerate(castling[[2, 3, 0, 1]]):
