@@ -13,7 +13,7 @@ class INFPreprocessor(Preprocessor):
 
 
 class Inference (StandardConvSuite):
-    def __init__(self, device: torch.device, model):
+    def __init__(self, device: torch.device, model, player=True, castling=True, enpassat=True):
         """
         Preprocesses dictionary of tensors to conv-suitable planes
         :param device: device for tensors
@@ -22,11 +22,14 @@ class Inference (StandardConvSuite):
         self.preprocessor = INFPreprocessor(device)
         self.coder = model
         self.coder.eval()
+        self.player = player
+        self.castling = castling
+        self.enpassat = enpassat
 
     def predict(self, fens):
         """
         :param fens: list of chess positions in fen notation
         :return: tensor
         """
-        batch = self.preprocess_batch(self.preprocessor.preprocess_batch(fens))
+        batch = self.preprocess_batch(self,self.preprocessor.preprocess_batch(fens))
         return self.coder(batch)

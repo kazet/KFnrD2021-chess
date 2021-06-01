@@ -5,6 +5,7 @@ import numpy as np
 import json
 import chess
 import re
+import time
 
 import settings
 import model
@@ -99,6 +100,7 @@ def find_similar(fen, num=1, similarity_function=nearest):
     cursor = conn.cursor()
     cursor.execute("select Embeding FROM positions_lite")
     matrix = cursor.fetchall()
+    print(len(matrix))
     matrix = [json.loads(x[0])[0] for x in matrix]
     scores = similarity_function(matrix, target)
     idx = find_lowest(scores, num)
@@ -177,6 +179,8 @@ def pgn_games(pgn,n_game, player = "", start_pos = 0):
             if ID >= n_game:
                 break
     return Games(result)
+
+
 
 #with urlopen("https://lichess.org/api/games/user/sebb306?max=10") as pgn:
 #    print(PgnGames(pgn,10))
