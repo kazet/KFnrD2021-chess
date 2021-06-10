@@ -288,15 +288,18 @@ class Preprocessor(object):
 
 
 class StandardConvSuite(object):
-    def __init__(self, preprocessor):
+    def __init__(self, preprocessor, player=True, castling=True, enpassat=True):
         r"""
         Preprocesses dictionary of tensors to conv-suitable planes
         :param preprocessor: info source
         """
         self.preprocessor = preprocessor
+        self.player = player
+        self.castling = castling
+        self.enpassat = enpassat
 
     @staticmethod
-    def preprocess_batch(batch):
+    def preprocess_batch(self,batch):
         """
         Makes batch suitable for convolutional
         :param batch:
@@ -304,22 +307,24 @@ class StandardConvSuite(object):
         """
         boards = []
         for board, player in zip(batch['boards'], batch['players']):
-            if player == 1:
+            if player == 1 and self.player:
                 #swapping players' positions
                 boards.append(board[[6, 7, 8, 9, 10, 11, 0, 1, 2, 3, 4, 5]])
             else:
                 boards.append(board)
         boards_v = torch.stack(boards)
-        boards_v = torch.cat([boards_v, batch['en_passants']], dim=1)
-        castlings = torch.zeros((boards_v.size()[0], 4, 8, 8)).to(boards_v.device)
-        for idx, (castling, player) in enumerate(zip(batch['castlings'], batch['players'])):
-            if player == 1:
-                for c_idx, component in enumerate(castling[[2, 3, 0, 1]]):
-                    castlings[idx, c_idx, :, :] = component
-            else:
-                for c_idx, component in enumerate(castling):
-                    castlings[idx, c_idx, :, :] = component
-        boards_v = torch.cat([boards_v, castlings], dim=1)
+        if self.enpassat:
+            boards_v = torch.cat([boards_v, batch['en_passants']], dim=1)
+        if self.castling:
+            castlings = torch.zeros((boards_v.size()[0], 4, 8, 8)).to(boards_v.device)
+            for idx, (castling, player) in enumerate(zip(batch['castlings'], batch['players'])):
+                if player == 1:
+                    for c_idx, component in enumerate(castling[[2, 3, 0, 1]]):
+                        castlings[idx, c_idx, :, :] = component
+                else:
+                    for c_idx, component in enumerate(castling):
+                        castlings[idx, c_idx, :, :] = component
+            boards_v = torch.cat([boards_v, castlings], dim=1)
         return boards_v
 
     def __iter__(self):
