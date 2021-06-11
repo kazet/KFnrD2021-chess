@@ -1,6 +1,7 @@
 import torch
-import torch.optim as optim
+from torch import optim
 from tensorboardX import SummaryWriter
+import torch.nn.functional as F
 
 import numpy as np
 import settings
@@ -30,9 +31,13 @@ if __name__ == '__main__':
         optimizer.step()
 
         # Logging to tensorboard
-        writer.add_scalar('loss_reconstruction', loss_reconstruction_v.item(), idx)
-        writer.add_scalar('reproduction_loss', losses[0].item(), idx)
-        writer.add_scalar('KL divergence', losses[1].item(), idx)
+        writer.add_scalar('Loss', loss_reconstruction_v.item(), idx,
+                          summary_description='Loss used for training, sum of reproduction loss and KL divergence')
+        writer.add_scalar('Losses/reproduction_loss', losses[0].item(), idx)
+        writer.add_scalar('Losses/KL divergence', losses[1].item(), idx)
+        writer.add_scalar('Losses/L1 loss', F.l1_loss(X_batch_v, x_hat).item(), idx)
+        writer.add_scalar('Losses/Smooth l1 loss', F.smooth_l1_loss(X_batch_v, x_hat).item(), idx)
+        writer.add_scalar('Losses/MSE loss', F.mse_loss(X_batch_v, x_hat).item(), idx)
 
         # Saving models and logging to console
         print(idx, loss_reconstruction_v.item())

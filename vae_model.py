@@ -75,12 +75,12 @@ class VAE(nn.Module):
 
 
 def loss_reconstruction(x, x_hat, mean, log_var):
-    reproduction_loss = F.binary_cross_entropy(x_hat, x, reduction='sum')
-    KLD = - 0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
+    reproduction_loss = F.binary_cross_entropy(x_hat, x)
+    KLD = - 0.5 * torch.mean(1 + log_var - mean.pow(2) - log_var.exp())
     return reproduction_loss + KLD, (reproduction_loss, KLD)
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # testing output shape
     t = torch.rand(1, 17, 8, 8)
     model = VAE((17, 8, 8), 16)
     model.eval()
