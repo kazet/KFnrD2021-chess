@@ -63,7 +63,7 @@ class VAE(nn.Module):
 
     def reparametrize(self, mean, log_var):
         std = torch.exp(0.5 * log_var)
-        eps = torch.rand_like(std).to(DEVICE)
+        eps = torch.randn_like(std).to(DEVICE)
         z = mean + std*eps
         return z
 
