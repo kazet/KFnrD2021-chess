@@ -8,7 +8,7 @@ import re
 import time
 
 import settings
-import model
+from model import Autoencoder
 from inference import Inference
 
 
@@ -17,7 +17,7 @@ def l1_loss(matrix, target):
 
 
 def nearest(matrix, target):
-    return cdist(matrix, np.atleast_2d([target]))
+    return cdist(np.array(matrix), np.atleast_2d([target]))
 
 
 def cosine_dist(matrix, target):
@@ -91,8 +91,11 @@ def find_similar(fen, num=1, similarity_function=nearest):
     :param similarity_function: Function that measures the similarity of vectors
     :return: list of games with similar positions
     """
-    coder = model.Coder(settings.BOARD_SHAPE, settings.LATENT_SIZE).to(settings.DEVICE)
-    # coder.load_state_dict(torch.load(setting.CODER_PATH))
+    coder = Autoencoder(settings.BOARD_SHAPE, settings.LATENT_SIZE).to(
+        settings.DEVICE
+    )
+    coder.load_state_dict(torch.load(settings.CODER_PATH, map_location=settings.DEVICE))
+    coder = coder.coder
     coder.eval()
     inf = Inference(settings.DEVICE, coder)
     target = inf.predict([fen]).tolist()[0]
@@ -100,7 +103,6 @@ def find_similar(fen, num=1, similarity_function=nearest):
     cursor = conn.cursor()
     cursor.execute("select Embeding FROM positions_lite")
     matrix = cursor.fetchall()
-    print(len(matrix))
     matrix = [json.loads(x[0])[0] for x in matrix]
     scores = similarity_function(matrix, target)
     idx = find_lowest(scores, num)
