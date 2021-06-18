@@ -102,11 +102,10 @@ def predict_similarity(
     engine,
     moves_deep=5,
     time_limit=0.1,
-    moves_similarity_weight=1,
-    score_similarity_weight=1,
-    pieces_similarity_weight=1,
+    weight = [1,1,1],
     info1=None,
     info2=None,
+    give_all = False,
 ):
     """
     :param fen1: first fen
@@ -139,11 +138,14 @@ def predict_similarity(
     )
     ps = pieces_similarity(fen1, fen2)
 
-    return (
-        ms * moves_similarity_weight
-        + ss * score_similarity_weight
-        + ps * pieces_similarity_weight
-    ) / (moves_similarity_weight + score_similarity_weight + pieces_similarity_weight)
+    result = (
+        ms * weight[0]
+        + ss * weight[1]
+        + ps * weight[2]
+    ) / (weight[0] + weight[1]+ weight[2])
+    if give_all:
+        return [ms,ss,ps,result]
+    return result
 
 
 if __name__ == "__main__":

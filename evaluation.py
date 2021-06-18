@@ -2,8 +2,9 @@ import torch
 import numpy as np
 from scipy.spatial.distance import cdist
 import chess.engine
-from os import path, getcwd
+from os import path, getcwd, listdir
 from random import randint
+from copy import deepcopy
 
 import settings
 from model import Autoencoder
@@ -12,21 +13,21 @@ from board_similarity import predict_similarity
 
 
 def nearest(matrix, target):
-    return cdist(np.array(matrix), np.atleast_2d([target]))
+    return cdist(matrix, np.atleast_2d([target]))
 
 
 def model_similarest_position(coder_inference, similarity_function, fens):
     scores = []
-    matrix = coder_inference.predict(fens).tolist()
+    matrix = np.array(coder_inference.predict(fens).tolist())
     for j in range(len(matrix)):
         scores.append(
-            np.argmin(similarity_function(matrix[:j] + matrix[j + 1 :], matrix[j]))
+            np.argmin(similarity_function(np.concatenate((matrix[:j] , matrix[j + 1 :]), axis=0), matrix[j]))
         )
     return scores
 
 
 def manual_similarest_position(
-    engine, similarity_function, fens, moves_deep=5, time_limit=0.1
+    engine, similarity_function, fens, weight, moves_deep=5, time_limit=0.1,
 ):
     scores = []
     infos = [
@@ -36,15 +37,16 @@ def manual_similarest_position(
         for fen in fens
     ]
     for i in range(len(fens)):
-        matrix = []
+        matrix = [[] for h in range(4)]
         for j in range(len(fens)):
             if j != i:
-                matrix.append(
-                    similarity_function(
-                        fens[i], fens[j], engine, info1=infos[i], info2=infos[j]
-                    )
+                results = similarity_function(
+                    fens[i], fens[j], engine, info1=infos[i], info2=infos[j], weight = weight,give_all = True,
                 )
-        scores.append(matrix.index(max(matrix)))
+                for g, result in enumerate(results):
+                    matrix[g].append(result)
+                
+        scores.append([m.index(max(m)) for m in matrix])
     return scores
 
 
@@ -56,13 +58,14 @@ def model_score(
     fens,
     batch_size=20,
     print_progress=False,
+    manual_weight = [1,1,1],
 ):
     """
     He takes n fen and checks for each one the most similar fen of the rest. 
     the results are compared with thats of the model
     """
     c_fens = fens.copy()
-    n_correct_predict = 0
+    n_correct_predicts = [0,0,0,0]
     n_predict = int(len(c_fens) / batch_size) * batch_size
     if print_progress:
         print("Progress : 0%", end="")
@@ -72,18 +75,46 @@ def model_score(
             coder_inference, model_similarity_function, fenset
         )
         manual_predict = manual_similarest_position(
-            engine, manual_similarity_function, fenset
+            engine, manual_similarity_function, fenset, manual_weight,
         )
         for i in range(batch_size):
-            if model_predict[i] == manual_predict[i]:
-                n_correct_predict += 1
+            for j,predict in enumerate(manual_predict[i]):
+                if predict == model_predict[i]:
+                    n_correct_predicts[j] += 1
         if print_progress:
             progress = int((1 - len(c_fens) / n_predict) * 100)
             print("\r", "Progress : " + str(progress) + "%", end="")
     if print_progress:
         print("\r", "Progres : 100%, End")
-    return n_correct_predict / n_predict
+    return [n_correct_predict / n_predict for n_correct_predict in n_correct_predicts]
 
+def opening_score(coder_inference,similarity_function,files_dir,batch_size):
+    openings = listdir(files_dir)
+    all_tests = 0
+    correct_test = 0
+    while len(openings) >= batch_size:
+        openings_dirs = [openings.pop(randint(0,len(openings)-1)) for i in range(batch_size)]
+        openings_fens = []
+        for dir in openings_dirs:
+            with open(dir,"r") as f:
+                openings_fens.append(f.read().split("\n")[:-1])
+        openings_matrix = [np.array(coder_inference.predict(fens).tolist()) for fens in openings_fens]
+        for main_idx in range(len(openings_matrix)):
+            main_matrix = deepcopy(openings_matrix[main_idx])
+            while len(main_matrix) > 2:
+                target = main_matrix.pop(randint(0,len(main_matrix)))
+                matrix = [ main_matrix.pop(randint(0,len(main_matrix))) ]
+                for idx in range(len(openings_matrix)):
+                    if idx == main_idx:
+                        continue
+                    matrix.append(openings_matrix[idx][randint(0,len(openings_matrix[idx]))])
+                result = np.argmin(similarity_function(matrix,target))
+                all_tests += 1
+                if result == 0:
+                    correct_test += 1
+    return correct_test / all_tests
+                
+        
 
 if __name__ == "__main__":
     coder = Autoencoder(settings.BOARD_SHAPE, settings.LATENT_SIZE).to(settings.DEVICE)
@@ -95,6 +126,8 @@ if __name__ == "__main__":
     engine = chess.engine.SimpleEngine.popen_uci(
         path.join(getcwd(), "stockfish_13_win_x64", "stockfish_13_win_x64.exe")
     )
+
+    #print(opening_score(inf,nearest,"/openingsFen",15))
 
     fens = None
     with open("lichessTestFen.pgn", "r") as f:
@@ -114,6 +147,6 @@ if __name__ == "__main__":
         "rnbq1rk1/ppp2pbp/4pnp1/8/2BPP3/2N1B3/PP2NPPP/R2Q1RK1 b - - 1 8",
     ]
 
-    print(model_score(inf, engine, nearest, predict_similarity, fens, 5))
+    print(model_score(inf, engine, nearest, predict_similarity, fens, 11))
 
     engine.quit()
