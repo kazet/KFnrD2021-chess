@@ -298,8 +298,7 @@ class StandardConvSuite(object):
         self.castling = castling
         self.enpassat = enpassat
 
-    @staticmethod
-    def preprocess_batch(self,batch):
+    def preprocess_batch(self, batch):
         """
         Makes batch suitable for convolutional
         :param batch:
