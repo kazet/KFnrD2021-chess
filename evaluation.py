@@ -88,7 +88,7 @@ def model_score(
         print("\r", "Progres : 100%, End")
     return [n_correct_predict / n_predict for n_correct_predict in n_correct_predicts]
 
-def opening_score(coder_inference,similarity_function,files_dir,batch_size):
+def opening_score(coder_inference,similarity_function,files_dir,batch_size, max_test = None):
     openings = listdir(files_dir)
     all_tests = 0
     correct_test = 0
@@ -96,25 +96,25 @@ def opening_score(coder_inference,similarity_function,files_dir,batch_size):
         openings_dirs = [openings.pop(randint(0,len(openings)-1)) for i in range(batch_size)]
         openings_fens = []
         for dir in openings_dirs:
-            with open(dir,"r") as f:
+            with open(path.join(files_dir,dir),"r") as f:
                 openings_fens.append(f.read().split("\n")[:-1])
-        openings_matrix = [np.array(coder_inference.predict(fens).tolist()) for fens in openings_fens]
+        openings_matrix = [coder_inference.predict(fens).tolist() for fens in openings_fens]
         for main_idx in range(len(openings_matrix)):
             main_matrix = deepcopy(openings_matrix[main_idx])
-            while len(main_matrix) > 2:
-                target = main_matrix.pop(randint(0,len(main_matrix)))
-                matrix = [ main_matrix.pop(randint(0,len(main_matrix))) ]
+            while len(main_matrix) >= 2:
+                target = main_matrix.pop(randint(0,len(main_matrix)-1))
+                matrix = [ main_matrix.pop(randint(0,len(main_matrix)-1)) ]
                 for idx in range(len(openings_matrix)):
                     if idx == main_idx:
                         continue
-                    matrix.append(openings_matrix[idx][randint(0,len(openings_matrix[idx]))])
-                result = np.argmin(similarity_function(matrix,target))
+                    matrix.append(openings_matrix[idx][randint(0,len(openings_matrix[idx])-1)])
+                result = np.argmin(similarity_function(np.array(matrix),target))
                 all_tests += 1
                 if result == 0:
                     correct_test += 1
+        if max_test!= None and max_test<= all_tests:
+            break
     return correct_test / all_tests
-                
-        
 
 if __name__ == "__main__":
     coder = Autoencoder(settings.BOARD_SHAPE, settings.LATENT_SIZE).to(settings.DEVICE)
@@ -122,12 +122,24 @@ if __name__ == "__main__":
     coder = coder.coder
     coder.eval()
     inf = Inference(settings.DEVICE, coder)
+    
+    class RandomEmbeding():
+        def predict(self,y):
+            return torch.rand(len(y),16)
+    inf3 = RandomEmbeding()
+    
+    coder2 = Autoencoder(settings.BOARD_SHAPE, settings.LATENT_SIZE).to(settings.DEVICE)
+    coder2 = coder2.coder
+    coder2.eval()
+    inf2 = Inference(settings.DEVICE, coder2)
 
     engine = chess.engine.SimpleEngine.popen_uci(
         path.join(getcwd(), "stockfish_13_win_x64", "stockfish_13_win_x64.exe")
     )
 
-    #print(opening_score(inf,nearest,"/openingsFen",15))
+    print(opening_score(inf,nearest,path.join(getcwd(),"openingsFen"),11,1000))
+    print(opening_score(inf2,nearest,path.join(getcwd(),"openingsFen"),11,1000))
+    print(opening_score(inf3,nearest,path.join(getcwd(),"openingsFen"),11,1000))
 
     fens = None
     with open("lichessTestFen.pgn", "r") as f:
@@ -148,5 +160,6 @@ if __name__ == "__main__":
     ]
 
     print(model_score(inf, engine, nearest, predict_similarity, fens, 11))
+    print(model_score(inf2, engine, nearest, predict_similarity, fens, 11))
 
     engine.quit()
