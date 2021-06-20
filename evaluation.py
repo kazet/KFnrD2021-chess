@@ -18,7 +18,7 @@ def nearest(matrix, target):
 
 def model_similarest_position(coder_inference, similarity_function, fens):
     scores = []
-    matrix = np.array(coder_inference.predict(fens).tolist())
+    matrix = np.array([coder_inference.predict([fen]).tolist()[0] for fen in fens])
     for j in range(len(matrix)):
         scores.append(
             np.argmin(similarity_function(np.concatenate((matrix[:j] , matrix[j + 1 :]), axis=0), matrix[j]))
@@ -98,9 +98,10 @@ def opening_score(coder_inference,similarity_function,files_dir,batch_size, max_
         for dir in openings_dirs:
             with open(path.join(files_dir,dir),"r") as f:
                 openings_fens.append(f.read().split("\n")[:-1])
-        openings_matrix = [coder_inference.predict(fens).tolist() for fens in openings_fens]
+        openings_matrix = [[coder_inference.predict([fen]).tolist()[0] for fen in fens] for fens in openings_fens]
         for main_idx in range(len(openings_matrix)):
             main_matrix = deepcopy(openings_matrix[main_idx])
+            main_fens = deepcopy(openings_fens[main_idx])
             while len(main_matrix) >= 2:
                 target = main_matrix.pop(randint(0,len(main_matrix)-1))
                 matrix = [ main_matrix.pop(randint(0,len(main_matrix)-1)) ]
@@ -137,9 +138,9 @@ if __name__ == "__main__":
         path.join(getcwd(), "stockfish_13_win_x64", "stockfish_13_win_x64.exe")
     )
 
-    print(opening_score(inf,nearest,path.join(getcwd(),"openingsFen"),11,1000))
-    print(opening_score(inf2,nearest,path.join(getcwd(),"openingsFen"),11,1000))
-    print(opening_score(inf3,nearest,path.join(getcwd(),"openingsFen"),11,1000))
+    print(opening_score(inf,nearest,path.join(getcwd(),"openingsFen2"),101,1000))
+    print(opening_score(inf2,nearest,path.join(getcwd(),"openingsFen2"),101,1000))
+    print(opening_score(inf3,nearest,path.join(getcwd(),"openingsFen2"),101,1000))
 
     fens = None
     with open("lichessTestFen.pgn", "r") as f:
