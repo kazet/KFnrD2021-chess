@@ -16,7 +16,7 @@ def nearest(matrix, target):
     return cdist(matrix, np.atleast_2d([target]))
 
 
-def model_similarest_position(coder_inference, similarity_function, fens):
+def model_most_similar_position(coder_inference, similarity_function, fens):
     scores = []
     matrix = np.array([coder_inference.predict([fen]).tolist()[0] for fen in fens])
     for j in range(len(matrix)):
@@ -26,7 +26,7 @@ def model_similarest_position(coder_inference, similarity_function, fens):
     return scores
 
 
-def manual_similarest_position(
+def manual_most_similar_position(
     engine, similarity_function, fens, weight, moves_deep=5, time_limit=0.1,
 ):
     scores = []
@@ -71,10 +71,10 @@ def model_score(
         print("Progress : 0%", end="")
     while len(c_fens) >= batch_size:
         fenset = [c_fens.pop(randint(0, len(c_fens) - 1)) for j in range(batch_size)]
-        model_predict = model_similarest_position(
+        model_predict = model_most_similar_position(
             coder_inference, model_similarity_function, fenset
         )
-        manual_predict = manual_similarest_position(
+        manual_predict = manual_most_similar_position(
             engine, manual_similarity_function, fenset, manual_weight,
         )
         for i in range(batch_size):
