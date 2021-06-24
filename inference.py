@@ -20,6 +20,7 @@ class Inference (StandardConvSuite):
         :param model: model to predict
         """
         self.preprocessor = INFPreprocessor(device)
+        super().__init__(self.preprocessor)
         self.coder = model
         self.coder.eval()
 
