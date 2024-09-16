@@ -18,7 +18,8 @@ def extract_games(path: str) -> Iterator[List[str]]:
         opn = open
     with opn(path, 'r') as file:
         for line in file:
-            line = str(line)  # line can be bytes, so it should be converted
+            if isinstance(line, bytes):
+                line = line.decode('utf-8')  # line can be bytes, so it should be converted
             if line.startswith('1'):  # Moves are in one line starting with 1
                 game = []  # list of moves in pgn notation
                 for move in re.findall(
